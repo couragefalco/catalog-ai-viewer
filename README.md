@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Catalog AI Viewer
 
-## Getting Started
+An interactive PDF catalog viewer with a grounded AI assistant. Ask a question
+about a document and the assistant answers with inline citations — clicking a
+citation jumps the viewer to the exact page and highlights the region the answer
+came from.
 
-First, run the development server:
+- **Split view** — resizable PDF viewer (react-pdf / pdf.js) beside a chat panel.
+- **Grounded answers** — the model reads the full PDF natively and tags every
+  statement with a `[[chunk-id]]` marker that resolves to a page + bounding box.
+- **Bring your own PDFs** — drop PDFs in a folder and run one ingest script.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Stack
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- Next.js (App Router) + React 19
+- [MuPDF](https://mupdf.com) (`mupdf`) for structured-text + bbox extraction at ingest time
+- Vercel AI SDK with Google Gemini for the chat endpoint
+- shadcn/ui + Tailwind CSS
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Getting started
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Install dependencies:
 
-## Learn More
+   ```bash
+   npm install
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+2. Set your model API key (see `.env.example`):
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+   ```bash
+   cp .env.example .env.local
+   # then edit .env.local and set GOOGLE_GENERATIVE_AI_API_KEY
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+3. Add your catalog PDFs and ingest them. Put PDFs in a folder (default
+   `./source-pdfs`) and run:
 
-## Deploy on Vercel
+   ```bash
+   CATALOG_SRC=./source-pdfs npm run ingest
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+   This copies the PDFs into `public/catalogs/` and generates the (gitignored)
+   `lib/catalogs.ts` manifest and `lib/chunks-data.ts` citation data.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+4. Run the dev server:
+
+   ```bash
+   npm run dev
+   ```
+
+> The PDFs and generated data files are **gitignored** — this repo ships the
+> pipeline, not any catalog content. Before you run `ingest`, the project builds
+> against empty stubs (`lib/*.example.ts`, copied into place automatically).
+
+## Configuration
+
+| Env var | Purpose |
+|---|---|
+| `GOOGLE_GENERATIVE_AI_API_KEY` | Google Gemini API key for the chat route. |
+| `NEXT_PUBLIC_SITE_URL` | Absolute site URL used for metadata / OG tags. |
+| `NEXT_PUBLIC_BASE_PATH` | Optional sub-path (e.g. `/catalog`) when served behind a reverse proxy. |
+
+## License
+
+This project is licensed under the **GNU Affero General Public License v3.0 or
+later (AGPL-3.0-or-later)** — see [`LICENSE`](./LICENSE).
+
+It depends on [MuPDF](https://mupdf.com), distributed by Artifex under the AGPL.
+Because of MuPDF's copyleft, the combined work is AGPL. If you deploy this as a
+network service, the AGPL requires you to offer the complete corresponding
+source of your deployed version to its users. If that does not fit your use
+case, obtain a [commercial MuPDF license from Artifex](https://artifex.com/licensing/)
+or replace MuPDF with a permissively licensed PDF engine. See [`NOTICE`](./NOTICE).

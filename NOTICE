@@ -1,0 +1,29 @@
+Catalog AI Viewer
+Copyright (C) 2026 Falco Schneider
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version. See the LICENSE file for the full text.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+
+----------------------------------------------------------------------
+Third-party components
+----------------------------------------------------------------------
+
+MuPDF (npm: "mupdf")
+  Copyright (C) Artifex Software, Inc.
+  Licensed under the GNU Affero General Public License v3.0 or later.
+  https://mupdf.com  |  https://artifex.com/licensing/
+
+  MuPDF's AGPL copyleft is the reason this combined work is licensed under the
+  AGPL. Deploying this software as a network service triggers AGPL section 13:
+  users interacting with it over a network are entitled to the complete
+  corresponding source of the deployed version. A commercial license for MuPDF
+  is available from Artifex if you do not wish to comply with the AGPL.
+
+Other dependencies (Next.js, React, the Vercel AI SDK, shadcn/ui, Tailwind CSS,
+and the Radix UI primitives) are distributed under the MIT license.
