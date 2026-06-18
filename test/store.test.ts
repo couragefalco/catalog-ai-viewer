@@ -36,6 +36,7 @@ import {
   patchCatalog,
   removeCatalog,
   uniqueId,
+  getCatalogPdfStream,
 } from "../lib/store";
 import type { CatalogRecord } from "../lib/catalog";
 
@@ -83,5 +84,13 @@ describe("store", () => {
   it("uniqueId avoids collisions", async () => {
     await saveCatalog(record("kat"), new Uint8Array([1]));
     expect(await uniqueId("kat")).toBe("kat-2");
+  });
+
+  it("returns a readable pdf stream after save", async () => {
+    await saveCatalog(record("a1"), new Uint8Array([9, 8, 7]));
+    const stream = await getCatalogPdfStream("a1");
+    expect(stream).not.toBeNull();
+    const bytes = new Uint8Array(await new Response(stream!).arrayBuffer());
+    expect([...bytes]).toEqual([9, 8, 7]);
   });
 });

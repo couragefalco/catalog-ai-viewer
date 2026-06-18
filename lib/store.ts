@@ -29,7 +29,7 @@ export async function getCatalogPdfStream(
   id: string,
 ): Promise<ReadableStream<Uint8Array> | null> {
   const res = await get(pdfKey(id), ACCESS);
-  if (!res || res.statusCode !== 200) return null;
+  if (!res || res.statusCode !== 200 || !res.stream) return null;
   return res.stream;
 }
 
