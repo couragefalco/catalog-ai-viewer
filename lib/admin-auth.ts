@@ -5,7 +5,8 @@ export const COOKIE_NAME = "cat_admin";
 const PAYLOAD = "admin";
 
 function hmac(value: string): string {
-  const secret = process.env.ADMIN_SECRET ?? "";
+  const secret = process.env.ADMIN_SECRET;
+  if (!secret) throw new Error("ADMIN_SECRET must be set");
   return createHmac("sha256", secret).update(value).digest("hex");
 }
 
@@ -28,7 +29,9 @@ export function signSession(): string {
 
 export function isValidSession(token: string | undefined): boolean {
   if (!token) return false;
-  const [payload, sig] = token.split(".");
+  const parts = token.split(".");
+  if (parts.length !== 2) return false;
+  const [payload, sig] = parts;
   if (payload !== PAYLOAD || !sig) return false;
   return safeEqual(sig, hmac(PAYLOAD));
 }

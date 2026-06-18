@@ -20,4 +20,16 @@ describe("admin-auth", () => {
     expect(checkPassword("hunter2")).toBe(true);
     expect(checkPassword("wrong")).toBe(false);
   });
+  it("rejects a token with extra segments", () => {
+    expect(isValidSession(signSession() + ".extra")).toBe(false);
+  });
+  it("rejects an empty password", () => {
+    expect(checkPassword("")).toBe(false);
+  });
+  it("throws when ADMIN_SECRET is missing", () => {
+    const saved = process.env.ADMIN_SECRET;
+    delete process.env.ADMIN_SECRET;
+    expect(() => signSession()).toThrow();
+    process.env.ADMIN_SECRET = saved;
+  });
 });
