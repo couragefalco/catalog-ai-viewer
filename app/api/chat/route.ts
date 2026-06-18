@@ -1,9 +1,6 @@
 import { google } from "@ai-sdk/google";
 import { streamText, type ModelMessage } from "ai";
-import { CATALOGS } from "@/lib/catalogs";
-import { CHUNKS_BY_DOC } from "@/lib/chunks-data";
-import { resolveChunk } from "@/lib/retrieval";
-import { BASE_PATH } from "@/lib/base-path";
+import { getCatalog, getCatalogPdfBytes } from "@/lib/store";
 import type { Citation } from "@/lib/types";
 
 export const maxDuration = 60;
@@ -11,35 +8,29 @@ export const maxDuration = 60;
 type InMsg = { role: "user" | "assistant"; text: string };
 
 export async function POST(req: Request) {
-  const {
-    messages,
-    docId,
-  }: { messages: InMsg[]; docId: string } = await req.json();
+  const { messages, docId }: { messages: InMsg[]; docId: string } =
+    await req.json();
 
-  const catalog = CATALOGS.find((c) => c.id === docId);
-  const chunks = CHUNKS_BY_DOC[docId] ?? [];
+  const catalog = await getCatalog(docId);
   if (!catalog) {
     return Response.json({ text: "Unbekanntes Dokument.", citations: [] });
   }
+  const chunks = catalog.chunks;
 
-  // Fetch the full PDF so Gemini reads it natively (nothing lost — incl. tables).
-  let pdfBytes: Uint8Array | null = null;
-  try {
-    const origin = new URL(req.url).origin;
-    const res = await fetch(`${origin}${BASE_PATH}/${catalog.file}`);
-    if (res.ok) pdfBytes = new Uint8Array(await res.arrayBuffer());
-  } catch {
-    pdfBytes = null;
-  }
+  // Read the full PDF from Blob so Gemini reads it natively (incl. tables).
+  const pdfBytes = await getCatalogPdfBytes(docId);
 
-  // Citation candidates: every chunk id + page + text (used only for [[id]] grounding).
   const candidates = chunks
     .map((c) => `[${c.id}] (Seite ${c.page}) ${c.text}`)
     .join("\n");
 
+  const notesBlock = catalog.notes?.trim()
+    ? `\n\nZUSÄTZLICHER KONTEXT (vom Betreiber gepflegt, beachte ihn):\n${catalog.notes.trim()}\n`
+    : "";
+
   const system = `Du bist ein Assistent für genau ein PDF: "${catalog.name}".
 Das vollständige PDF ist angehängt — lies es direkt und vollständig, inklusive Tabellen, Maße und Spalten. Gib Tabellen bei Bedarf als Markdown-Tabelle aus.
-Antworte auf Deutsch, präzise. Wenn etwas nicht im Dokument steht, sage das ehrlich.
+Antworte auf Deutsch, präzise. Wenn etwas nicht im Dokument steht, sage das ehrlich.${notesBlock}
 
 ZITATE:
 - Setze hinter jede Aussage einen Marker im Format [[chunk-id]] (genau EINE id pro Klammerpaar).
@@ -71,9 +62,10 @@ ${candidates}
     messages: modelMessages,
   });
 
-  // Resolve cited ids → page + bbox from the COMPLETE text (citations need the
+  // Resolve cited ids -> page + bbox from the COMPLETE text (citations need the
   // whole answer, so they're computed once the stream ends). Robust to whatever
   // bracket form Gemini emits ([[id]], [[id1]][[id2]], or [[id1], [id2]]).
+  const byId = new Map(chunks.map((c) => [c.id, c]));
   const allowed = new Set(chunks.map((c) => c.id));
   const buildCitations = (text: string): Citation[] => {
     const blocks = text.match(/\[\[[\s\S]*?\]\]/g) ?? [];
@@ -86,7 +78,7 @@ ${candidates}
     ].slice(0, 12); // keep the sources list usable (order = first appearance)
     return citedIds
       .map((id) => {
-        const chunk = resolveChunk(docId, id);
+        const chunk = byId.get(id);
         return chunk
           ? {
               id,
