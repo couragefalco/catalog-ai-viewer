@@ -85,19 +85,57 @@ export function ChatPanel({ docId, onCite, activeCitationId }: ChatPanelProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: history, docId }),
       });
-      const data = (await res.json()) as {
-        text: string;
-        citations: Citation[];
+      if (!res.body) throw new Error("no stream");
+
+      // Stream protocol: live answer text, then a \x1e separator followed by the
+      // citations JSON. Everything before the separator is rendered live.
+      const aid = `a${counter.current++}`;
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      let started = false;
+
+      const splitText = (s: string) => {
+        const sep = s.indexOf("\x1e");
+        return sep === -1 ? s : s.slice(0, sep);
       };
-      setMessages((m) => [
-        ...m,
-        {
-          id: `a${counter.current++}`,
-          role: "assistant",
-          text: data.text,
-          citations: data.citations,
-        },
-      ]);
+
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const text = splitText(buf);
+        if (!started) {
+          started = true;
+          setMessages((m) => [
+            ...m,
+            { id: aid, role: "assistant", text },
+          ]);
+        } else {
+          setMessages((m) =>
+            m.map((msg) => (msg.id === aid ? { ...msg, text } : msg)),
+          );
+        }
+      }
+
+      // Stream finished: parse the citations after the separator.
+      let citations: Citation[] = [];
+      const sep = buf.indexOf("\x1e");
+      if (sep !== -1) {
+        try {
+          citations = JSON.parse(buf.slice(sep + 1)) as Citation[];
+        } catch {
+          citations = [];
+        }
+      }
+      const finalText = splitText(buf);
+      setMessages((m) =>
+        started
+          ? m.map((msg) =>
+              msg.id === aid ? { ...msg, text: finalText, citations } : msg,
+            )
+          : [...m, { id: aid, role: "assistant", text: finalText, citations }],
+      );
     } catch {
       setMessages((m) => [
         ...m,
@@ -150,13 +188,17 @@ export function ChatPanel({ docId, onCite, activeCitationId }: ChatPanelProps) {
               </Message>
             ))
           )}
-          {loading && (
-            <Message from="assistant">
-              <MessageContent>
-                <span className="text-muted-foreground text-sm">Denke nach…</span>
-              </MessageContent>
-            </Message>
-          )}
+          {loading &&
+            (messages.length === 0 ||
+              messages[messages.length - 1].role !== "assistant") && (
+              <Message from="assistant">
+                <MessageContent>
+                  <span className="text-muted-foreground text-sm">
+                    Denke nach…
+                  </span>
+                </MessageContent>
+              </Message>
+            )}
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
@@ -217,6 +259,7 @@ function AssistantBody({
   // lists). The clickable sources below drive the page jump + highlight.
   const clean = text
     .replace(/\[\[[\s\S]*?\]\]/g, "")
+    .replace(/\[\[[^\]]*$/, "") // drop a half-streamed, not-yet-closed marker
     .replace(/[ \t]{2,}/g, " ")
     .replace(/ +([.,;:!?])/g, "$1")
     .trim();

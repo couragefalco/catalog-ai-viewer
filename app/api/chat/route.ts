@@ -1,5 +1,5 @@
 import { google } from "@ai-sdk/google";
-import { generateText, type ModelMessage } from "ai";
+import { streamText, type ModelMessage } from "ai";
 import { CATALOGS } from "@/lib/catalogs";
 import { CHUNKS_BY_DOC } from "@/lib/chunks-data";
 import { resolveChunk } from "@/lib/retrieval";
@@ -65,37 +65,72 @@ ${candidates}
     return { role: m.role, content: m.text };
   });
 
-  const { text } = await generateText({
+  const result = streamText({
     model: google("gemini-2.5-flash"),
     system,
     messages: modelMessages,
   });
 
-  // Resolve cited ids → page + bbox (server-side; client never loads chunks).
-  // Robust to whatever bracket form Gemini emits ([[id]], [[id1]][[id2]],
-  // or [[id1], [id2]]): pull every chunk-id token out of each [[ … ]] block.
+  // Resolve cited ids → page + bbox from the COMPLETE text (citations need the
+  // whole answer, so they're computed once the stream ends). Robust to whatever
+  // bracket form Gemini emits ([[id]], [[id1]][[id2]], or [[id1], [id2]]).
   const allowed = new Set(chunks.map((c) => c.id));
-  const blocks = text.match(/\[\[[\s\S]*?\]\]/g) ?? [];
-  const citedIds = [
-    ...new Set(
-      blocks
-        .flatMap((b) => b.match(/p\d+-b\d+/g) ?? [])
-        .filter((id) => allowed.has(id)),
-    ),
-  ].slice(0, 12); // keep the sources list usable (order = first appearance)
-  const citations: Citation[] = citedIds
-    .map((id) => {
-      const chunk = resolveChunk(docId, id);
-      return chunk
-        ? {
-            id,
-            page: chunk.page,
-            bbox: chunk.bbox,
-            snippet: chunk.text.slice(0, 160),
-          }
-        : null;
-    })
-    .filter(Boolean) as Citation[];
+  const buildCitations = (text: string): Citation[] => {
+    const blocks = text.match(/\[\[[\s\S]*?\]\]/g) ?? [];
+    const citedIds = [
+      ...new Set(
+        blocks
+          .flatMap((b) => b.match(/p\d+-b\d+/g) ?? [])
+          .filter((id) => allowed.has(id)),
+      ),
+    ].slice(0, 12); // keep the sources list usable (order = first appearance)
+    return citedIds
+      .map((id) => {
+        const chunk = resolveChunk(docId, id);
+        return chunk
+          ? {
+              id,
+              page: chunk.page,
+              bbox: chunk.bbox,
+              snippet: chunk.text.slice(0, 160),
+            }
+          : null;
+      })
+      .filter(Boolean) as Citation[];
+  };
 
-  return Response.json({ text, citations });
+  // Stream the answer text live, then append the citations JSON after a record
+  // separator (\x1e never appears in German answer text). The client splits on
+  // it: everything before is the live text, everything after is the sources.
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      let full = "";
+      try {
+        for await (const delta of result.textStream) {
+          full += delta;
+          controller.enqueue(encoder.encode(delta));
+        }
+        controller.enqueue(
+          encoder.encode("\x1e" + JSON.stringify(buildCitations(full))),
+        );
+      } catch {
+        if (!full) {
+          controller.enqueue(
+            encoder.encode("Es gab einen Fehler bei der Anfrage."),
+          );
+        }
+        controller.enqueue(encoder.encode("\x1e[]"));
+      }
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Accel-Buffering": "no",
+    },
+  });
 }
