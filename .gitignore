@@ -41,10 +41,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# catalog data — proprietary / generated. Bring your own PDFs and run
-# `npm run ingest`. These are produced locally and must not be committed.
+# catalog data — proprietary source PDFs must not be committed.
 /source-pdfs/
-/public/catalogs/*
-!/public/catalogs/.gitkeep
-/lib/catalogs.ts
-/lib/chunks-data.ts
+.claude/settings.local.json

@@ -3,15 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "predev": "node scripts/ensure-data.mjs",
     "dev": "next dev",
-    "prebuild": "node scripts/ensure-data.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "ingest": "node scripts/ingest.mjs",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "ingest": "node scripts/ingest.mjs"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.80",
