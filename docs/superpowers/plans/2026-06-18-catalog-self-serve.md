@@ -18,6 +18,7 @@
 - `BASE_PATH` comes from `NEXT_PUBLIC_BASE_PATH` (`/catalog` in production behind the igus proxy). Keep using `@/lib/base-path` for client-built URLs.
 - Model id stays `gemini-2.5-flash` via `google(...)` from `@ai-sdk/google`.
 - Frequent commits: one commit per task minimum.
+- **Branding:** a small igus logo sits top-left in the catalog toolbar, the landing header, and the admin header. Asset at `public/igus-logo.svg` (provided by the operator). Render at ~20px tall via `<img>` with `src={`${BASE_PATH}/igus-logo.svg`}` and `alt="igus"`; if the asset is missing the `alt` text shows. Do not recreate the trademark in code. See Task 10.
 
 ---
 
@@ -1537,6 +1538,64 @@ Expected: all tests pass.
 ```bash
 git add -A
 git commit -m "refactor: remove build-time catalog modules; blob is sole source"
+```
+
+---
+
+## Task 10: Branding — small igus logo top-left
+
+**Files:**
+- Add: `public/igus-logo.svg` (operator-provided asset)
+- Modify: `components/catalog-viewer.tsx` (toolbar, left of the catalog name)
+- Modify: `app/page.tsx` (landing header)
+- Modify: `components/admin-dashboard.tsx` (dashboard + login headers)
+
+**Interfaces:**
+- Consumes: `BASE_PATH` from `@/lib/base-path`.
+- Produces: a reusable inline logo element. Keep it trivial; no new component is required unless it reduces duplication.
+
+- [ ] **Step 1: Confirm the asset is present**
+
+```bash
+ls -la public/igus-logo.svg && file public/igus-logo.svg
+```
+Expected: the file exists. If absent, the `alt="igus"` fallback still renders, but flag it in the report.
+
+- [ ] **Step 2: Add the logo to the catalog toolbar**
+
+In `components/catalog-viewer.tsx`, in the toolbar block (around line 149-152, the `flex min-w-0 items-center gap-2.5` div that holds the FileText icon and catalog name), insert before the `<FileText ...>`:
+```tsx
+<img
+  src={`${BASE_PATH}/igus-logo.svg`}
+  alt="igus"
+  className="h-5 w-auto shrink-0"
+/>
+```
+`BASE_PATH` is already imported in this file.
+
+- [ ] **Step 3: Add the logo to the landing header (`app/page.tsx`)**
+
+Import at the top: `import { BASE_PATH } from "@/lib/base-path";`. Place above the `<h1>`:
+```tsx
+<img src={`${BASE_PATH}/igus-logo.svg`} alt="igus" className="mb-4 h-5 w-auto" />
+```
+
+- [ ] **Step 4: Add the logo to the admin headers (`components/admin-dashboard.tsx`)**
+
+`BASE_PATH` is already imported. In both `AdminLogin` (above its `<h1>`) and `AdminDashboard` (above its `<h1>`), add:
+```tsx
+<img src={`${BASE_PATH}/igus-logo.svg`} alt="igus" className="mb-4 h-5 w-auto" />
+```
+
+- [ ] **Step 5: Verify**
+
+Run `npm run dev` and confirm the small logo appears top-left on `/`, `/catalog/<id>`, and `/admin`. Run `npx tsc --noEmit` (expect no errors).
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add public/igus-logo.svg app/page.tsx components/catalog-viewer.tsx components/admin-dashboard.tsx
+git commit -m "feat: small igus logo top-left on viewer, landing, admin"
 ```
 
 ---
