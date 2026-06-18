@@ -23,6 +23,7 @@ export function AdminLogin() {
 
   return (
     <main className="mx-auto max-w-sm px-6 py-24">
+      <img src={`${BASE_PATH}/igus-logo.svg`} alt="igus" className="mb-4 h-5 w-auto" />
       <h1 className="text-xl font-semibold">Admin-Anmeldung</h1>
       <form onSubmit={submit} className="mt-6 space-y-3">
         <input
@@ -79,6 +80,7 @@ export function AdminDashboard({ catalogs }: { catalogs: CatalogMeta[] }) {
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
+      <img src={`${BASE_PATH}/igus-logo.svg`} alt="igus" className="mb-4 h-5 w-auto" />
       <h1 className="text-2xl font-semibold">Kataloge verwalten</h1>
 
       <form onSubmit={upload} className="mt-6 flex items-center gap-3 rounded-md border p-4">

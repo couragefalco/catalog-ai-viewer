@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { FileText } from "lucide-react";
 import { listCatalogs } from "@/lib/store";
+import { BASE_PATH } from "@/lib/base-path";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,7 @@ export default async function Home() {
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-16">
+      <img src={`${BASE_PATH}/igus-logo.svg`} alt="igus" className="mb-4 h-5 w-auto" />
       <h1 className="text-2xl font-semibold">Katalog-Assistent</h1>
       <p className="text-muted-foreground mt-2 text-sm">
         Wähle einen Katalog, um Fragen dazu zu stellen.
