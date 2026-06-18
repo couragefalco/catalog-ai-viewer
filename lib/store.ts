@@ -51,7 +51,7 @@ export async function saveCatalog(
       allowOverwrite: true,
       contentType: "application/json",
     }),
-    put(pdfKey(record.id), pdf, {
+    put(pdfKey(record.id), Buffer.from(pdf), {
       access: "private",
       allowOverwrite: true,
       contentType: "application/pdf",
