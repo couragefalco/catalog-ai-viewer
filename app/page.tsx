@@ -2,6 +2,8 @@ import Link from "next/link";
 import { FileText } from "lucide-react";
 import { listCatalogs } from "@/lib/store";
 
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   const catalogs = await listCatalogs();
 
