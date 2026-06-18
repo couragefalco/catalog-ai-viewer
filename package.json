@@ -9,13 +9,16 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "ingest": "node scripts/ingest.mjs"
+    "ingest": "node scripts/ingest.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.80",
     "@ai-sdk/react": "^3.0.197",
     "@base-ui/react": "^1.5.0",
     "@radix-ui/react-use-controllable-state": "^1.2.2",
+    "@vercel/blob": "^2.4.1",
     "@xyflow/react": "^12.11.0",
     "ai": "^6.0.195",
     "class-variance-authority": "^0.7.1",
@@ -50,6 +53,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.7",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.6"
   }
 }
