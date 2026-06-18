@@ -15,7 +15,7 @@ vi.mock("@vercel/blob", () => ({
     const body = mem.get(pathname)!;
     return {
       statusCode: 200,
-      stream: new Response(body).body,
+      stream: new Response(body as BodyInit).body,
       blob: { pathname, contentType: "application/octet-stream" },
     };
   }),
