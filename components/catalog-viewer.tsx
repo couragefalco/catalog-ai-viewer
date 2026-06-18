@@ -13,7 +13,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import type { Catalog } from "@/lib/catalogs";
+export type Catalog = { id: string; name: string; numPages: number; file: string };
 import type { Citation } from "@/lib/types";
 import { BASE_PATH } from "@/lib/base-path";
 import { cn } from "@/lib/utils";
@@ -52,8 +52,8 @@ const PAGE_ASPECT = 1.384;
 
 type CatalogViewerProps = {
   catalog: Catalog;
-  catalogs: Catalog[];
-  onSelectCatalog: (id: string) => void;
+  catalogs?: Catalog[];
+  onSelectCatalog?: (id: string) => void;
   page: number;
   onPageChange: (page: number) => void;
   activeCitation: Citation | null;
@@ -76,9 +76,11 @@ export function CatalogViewer({
   const fileUrl = `${BASE_PATH}/${catalog.file}`;
 
   const q = query.trim().toLowerCase();
-  const filtered = q
-    ? catalogs.filter((c) => c.name.toLowerCase().includes(q))
-    : catalogs;
+  const filtered = catalogs
+    ? q
+      ? catalogs.filter((c) => c.name.toLowerCase().includes(q))
+      : catalogs
+    : [];
 
   const stepZoom = (dir: 1 | -1) => {
     const i = ZOOMS.indexOf(zoom);
@@ -93,59 +95,63 @@ export function CatalogViewer({
       style={{ "--sidebar-width": "16rem" } as React.CSSProperties}
     >
       {/* Collapsible catalog sidebar */}
-      <Sidebar collapsible="offcanvas">
-        <SidebarHeader className="gap-2">
-          <div className="flex items-center justify-between px-1">
-            <span className="text-muted-foreground text-[0.7rem] font-semibold uppercase tracking-wider">
-              Kataloge
-            </span>
-            <Badge variant="secondary" className="font-mono text-[0.6rem]">
-              {catalogs.length}
-            </Badge>
-          </div>
-          <SidebarInput
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Katalog suchen…"
-          />
-        </SidebarHeader>
-        <SidebarContent>
-          <SidebarGroup>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {filtered.length === 0 ? (
-                  <p className="text-muted-foreground px-2 py-4 text-center text-xs">
-                    Kein Katalog gefunden.
-                  </p>
-                ) : (
-                  filtered.map((c) => (
-                    <SidebarMenuItem key={c.id}>
-                      <SidebarMenuButton
-                        isActive={c.id === catalog.id}
-                        onClick={() => onSelectCatalog(c.id)}
-                        tooltip={c.name}
-                        className="pr-8"
-                      >
-                        <FileText className="shrink-0" />
-                        <span className="truncate">{c.name}</span>
-                      </SidebarMenuButton>
-                      <SidebarMenuBadge className="font-mono">
-                        {c.numPages}
-                      </SidebarMenuBadge>
-                    </SidebarMenuItem>
-                  ))
-                )}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        </SidebarContent>
-      </Sidebar>
+      {catalogs && catalogs.length > 1 && onSelectCatalog && (
+        <Sidebar collapsible="offcanvas">
+          <SidebarHeader className="gap-2">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-muted-foreground text-[0.7rem] font-semibold uppercase tracking-wider">
+                Kataloge
+              </span>
+              <Badge variant="secondary" className="font-mono text-[0.6rem]">
+                {catalogs.length}
+              </Badge>
+            </div>
+            <SidebarInput
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Katalog suchen…"
+            />
+          </SidebarHeader>
+          <SidebarContent>
+            <SidebarGroup>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {filtered.length === 0 ? (
+                    <p className="text-muted-foreground px-2 py-4 text-center text-xs">
+                      Kein Katalog gefunden.
+                    </p>
+                  ) : (
+                    filtered.map((c) => (
+                      <SidebarMenuItem key={c.id}>
+                        <SidebarMenuButton
+                          isActive={c.id === catalog.id}
+                          onClick={() => onSelectCatalog(c.id)}
+                          tooltip={c.name}
+                          className="pr-8"
+                        >
+                          <FileText className="shrink-0" />
+                          <span className="truncate">{c.name}</span>
+                        </SidebarMenuButton>
+                        <SidebarMenuBadge className="font-mono">
+                          {c.numPages}
+                        </SidebarMenuBadge>
+                      </SidebarMenuItem>
+                    ))
+                  )}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </SidebarContent>
+        </Sidebar>
+      )}
 
       {/* Main */}
       <SidebarInset className="h-full min-h-0 overflow-hidden bg-muted/30">
         {/* Toolbar */}
         <div className="flex h-14 shrink-0 items-center gap-2 border-b bg-background/80 px-3 backdrop-blur">
-          <SidebarTrigger className="-ml-1" />
+          {catalogs && catalogs.length > 1 && onSelectCatalog && (
+            <SidebarTrigger className="-ml-1" />
+          )}
           <div className="flex min-w-0 items-center gap-2.5">
             <FileText className="text-muted-foreground h-4 w-4 shrink-0" />
             <p className="truncate text-sm font-medium">{catalog.name}</p>
