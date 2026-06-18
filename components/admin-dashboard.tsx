@@ -58,17 +58,22 @@ export function AdminDashboard({ catalogs }: { catalogs: CatalogMeta[] }) {
     else alert((await res.json()).error ?? "Upload fehlgeschlagen.");
   };
 
-  const saveNotes = async (id: string, notes: string) => {
-    await fetch(api(`/api/admin/catalogs/${id}`), {
+  const saveNotes = async (id: string, notes: string): Promise<boolean> => {
+    const res = await fetch(api(`/api/admin/catalogs/${id}`), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ notes }),
     });
+    return res.ok;
   };
 
   const remove = async (id: string) => {
     if (!confirm("Diesen Katalog löschen?")) return;
-    await fetch(api(`/api/admin/catalogs/${id}`), { method: "DELETE" });
+    const res = await fetch(api(`/api/admin/catalogs/${id}`), { method: "DELETE" });
+    if (!res.ok) {
+      alert("Löschen fehlgeschlagen.");
+      return;
+    }
     window.location.reload();
   };
 
@@ -112,16 +117,17 @@ function NotesEditor({
 }: {
   id: string;
   initial: string;
-  onSave: (id: string, notes: string) => Promise<void>;
+  onSave: (id: string, notes: string) => Promise<boolean>;
 }) {
   const [notes, setNotes] = useState(initial);
   const [saved, setSaved] = useState(false);
   return (
     <div className="mt-3">
-      <label className="text-muted-foreground text-xs">
+      <label htmlFor={`notes-${id}`} className="text-muted-foreground text-xs">
         Zusätzlicher Kontext für die KI (z. B. Produktnamen-Varianten)
       </label>
       <textarea
+        id={`notes-${id}`}
         value={notes}
         onChange={(e) => {
           setNotes(e.target.value);
@@ -132,8 +138,9 @@ function NotesEditor({
       />
       <button
         onClick={async () => {
-          await onSave(id, notes);
-          setSaved(true);
+          const ok = await onSave(id, notes);
+          if (ok) setSaved(true);
+          else alert("Speichern fehlgeschlagen.");
         }}
         className="mt-1 rounded-md border px-2 py-1 text-xs"
       >
