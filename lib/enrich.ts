@@ -16,6 +16,7 @@ export async function enrichCatalog(input: {
     const { object } = await generateObject({
       model: google("gemini-2.5-flash"),
       schema,
+      abortSignal: AbortSignal.timeout(20000),
       prompt: `Du erhältst Auszüge aus einem Produktkatalog/Whitepaper (Deutsch).
 Erzeuge als ENTWURF (ein Mensch prüft danach):
 - "name": ein kurzer, sauberer Katalogname.

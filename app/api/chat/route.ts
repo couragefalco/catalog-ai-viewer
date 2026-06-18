@@ -4,6 +4,7 @@ import { getCatalog, getCatalogPdfBytes } from "@/lib/store";
 import type { Citation } from "@/lib/types";
 
 export const maxDuration = 60;
+export const runtime = "nodejs";
 
 type InMsg = { role: "user" | "assistant"; text: string };
 
