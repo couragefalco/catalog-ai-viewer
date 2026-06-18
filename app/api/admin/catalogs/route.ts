@@ -1,0 +1,42 @@
+import { requireAdmin } from "@/lib/admin-auth";
+import { ingestPdf, slugify } from "@/lib/ingest";
+import { saveCatalog, uniqueId } from "@/lib/store";
+import type { CatalogRecord } from "@/lib/catalog";
+
+export const maxDuration = 300; // large PDFs: allow time for mupdf extraction
+
+export async function POST(req: Request) {
+  if (!(await requireAdmin())) {
+    return Response.json({ error: "Nicht autorisiert" }, { status: 401 });
+  }
+  const form = await req.formData();
+  const file = form.get("file");
+  if (!(file instanceof File) || !file.name.toLowerCase().endsWith(".pdf")) {
+    return Response.json({ error: "Bitte eine PDF-Datei hochladen." }, { status: 400 });
+  }
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let numPages: number;
+  let chunks;
+  try {
+    ({ numPages, chunks } = ingestPdf(bytes));
+  } catch {
+    return Response.json(
+      { error: "PDF konnte nicht verarbeitet werden." },
+      { status: 422 },
+    );
+  }
+
+  const id = await uniqueId(slugify(file.name) || "katalog");
+  const record: CatalogRecord = {
+    id,
+    name: file.name.replace(/\.pdf$/i, ""),
+    numPages,
+    notes: "",
+    exampleQuestions: [],
+    createdAt: new Date().toISOString(),
+    chunks,
+  };
+  await saveCatalog(record, bytes);
+  return Response.json({ id, name: record.name, numPages });
+}

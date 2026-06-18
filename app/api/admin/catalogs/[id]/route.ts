@@ -1,0 +1,32 @@
+import { requireAdmin } from "@/lib/admin-auth";
+import { patchCatalog, removeCatalog } from "@/lib/store";
+
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  if (!(await requireAdmin())) {
+    return Response.json({ error: "Nicht autorisiert" }, { status: 401 });
+  }
+  const { id } = await params;
+  const body = (await req.json()) as {
+    name?: string;
+    notes?: string;
+    exampleQuestions?: string[];
+  };
+  const updated = await patchCatalog(id, body);
+  if (!updated) return Response.json({ error: "Nicht gefunden" }, { status: 404 });
+  return Response.json({ ok: true });
+}
+
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  if (!(await requireAdmin())) {
+    return Response.json({ error: "Nicht autorisiert" }, { status: 401 });
+  }
+  const { id } = await params;
+  await removeCatalog(id);
+  return Response.json({ ok: true });
+}
