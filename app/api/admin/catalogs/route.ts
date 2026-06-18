@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/admin-auth";
+import { enrichCatalog } from "@/lib/enrich";
 import { ingestPdf, slugify } from "@/lib/ingest";
 import { saveCatalog, uniqueId } from "@/lib/store";
 import type { CatalogRecord } from "@/lib/catalog";
@@ -28,12 +29,17 @@ export async function POST(req: Request) {
   }
 
   const id = await uniqueId(slugify(file.name) || "katalog");
+  const sampleText = chunks.slice(0, 40).map((c) => c.text).join("\n");
+  const enriched = await enrichCatalog({
+    fallbackName: file.name.replace(/\.pdf$/i, ""),
+    sampleText,
+  });
   const record: CatalogRecord = {
     id,
-    name: file.name.replace(/\.pdf$/i, ""),
+    name: enriched.name,
     numPages,
-    notes: "",
-    exampleQuestions: [],
+    notes: enriched.notes,
+    exampleQuestions: enriched.exampleQuestions,
     createdAt: new Date().toISOString(),
     chunks,
   };
