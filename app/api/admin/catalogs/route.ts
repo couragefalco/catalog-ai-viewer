@@ -1,10 +1,8 @@
 import { requireAdmin } from "@/lib/admin-auth";
-import { enrichCatalog } from "@/lib/enrich";
-import { ingestPdf, slugify } from "@/lib/ingest";
-import { saveCatalog, uniqueId } from "@/lib/store";
-import type { CatalogRecord } from "@/lib/catalog";
+import { processUpload } from "@/lib/process-upload";
 
-export const maxDuration = 300; // large PDFs: allow time for mupdf extraction
+export const runtime = "nodejs";
+export const maxDuration = 300;
 
 export async function POST(req: Request) {
   if (!(await requireAdmin())) {
@@ -15,35 +13,11 @@ export async function POST(req: Request) {
   if (!(file instanceof File) || !file.name.toLowerCase().endsWith(".pdf")) {
     return Response.json({ error: "Bitte eine PDF-Datei hochladen." }, { status: 400 });
   }
-
   const bytes = new Uint8Array(await file.arrayBuffer());
-  let numPages: number;
-  let chunks;
   try {
-    ({ numPages, chunks } = ingestPdf(bytes));
+    const result = await processUpload(bytes, file.name);
+    return Response.json(result);
   } catch {
-    return Response.json(
-      { error: "PDF konnte nicht verarbeitet werden." },
-      { status: 422 },
-    );
+    return Response.json({ error: "PDF konnte nicht verarbeitet werden." }, { status: 422 });
   }
-
-  const id = await uniqueId(slugify(file.name) || "katalog");
-  const sampleText = chunks.slice(0, 40).map((c) => c.text).join("\n");
-  const enriched = await enrichCatalog({
-    fallbackName: file.name.replace(/\.pdf$/i, ""),
-    sampleText,
-  });
-  const record: CatalogRecord = {
-    id,
-    name: enriched.name,
-    numPages,
-    notes: enriched.notes,
-    exampleQuestions: enriched.exampleQuestions,
-    createdAt: new Date().toISOString(),
-    mode: numPages >= 20 ? "rag" : "full",
-    chunks,
-  };
-  await saveCatalog(record, bytes);
-  return Response.json({ id, name: record.name, numPages });
 }

@@ -108,6 +108,10 @@ export async function getBlobBytes(
   return new Uint8Array(await new Response(res.stream).arrayBuffer());
 }
 
+export async function removeBlob(pathname: string): Promise<void> {
+  await del(pathname);
+}
+
 async function idExists(id: string): Promise<boolean> {
   return (await get(jsonKey(id), ACCESS)) !== null;
 }
