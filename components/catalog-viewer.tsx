@@ -158,7 +158,6 @@ export function CatalogViewer({
               alt="igus"
               className="h-5 w-auto shrink-0"
             />
-            <FileText className="text-muted-foreground h-4 w-4 shrink-0" />
             <p className="truncate text-sm font-medium">{catalog.name}</p>
           </div>
 

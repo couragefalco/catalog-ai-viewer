@@ -24,9 +24,21 @@ export default async function Home() {
     );
   }
 
+  // Show the main PRT compact catalog (the 8-page one) first so it loads by
+  // default; keep the rest alphabetical.
+  const rank = (c: { id: string; numPages: number }) =>
+    c.numPages === 8 && /kompaktkatalog/i.test(c.id)
+      ? 0
+      : /kompaktkatalog/i.test(c.id)
+        ? 1
+        : 2;
+  const ordered = [...catalogs].sort(
+    (a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name),
+  );
+
   // Map stored metadata to the viewer's client shape; the PDF is served by the
   // private streaming route (browser cannot read the blob directly).
-  const clientCatalogs = catalogs.map((c) => ({
+  const clientCatalogs = ordered.map((c) => ({
     id: c.id,
     name: c.name,
     numPages: c.numPages,
