@@ -1,6 +1,7 @@
 import { google } from "@ai-sdk/google";
 import { streamText, type ModelMessage } from "ai";
-import { getCatalog, getCatalogPdfBytes } from "@/lib/store";
+import { getCatalog, getCatalogPdfBytes, getCatalogVectors } from "@/lib/store";
+import { embedQuery, topKIndices } from "@/lib/embeddings";
 import type { Citation } from "@/lib/types";
 
 export const maxDuration = 60;
@@ -18,10 +19,26 @@ export async function POST(req: Request) {
   }
   const chunks = catalog.chunks;
 
-  // Read the full PDF from Blob so Gemini reads it natively (incl. tables).
-  const pdfBytes = await getCatalogPdfBytes(docId);
+  // Determine retrieval mode: rag (large catalogs) vs full (small, default).
+  const lastUser = [...messages].reverse().find((m) => m.role === "user");
+  let candidateChunks = chunks;
+  let attachPdf = true;
 
-  const candidates = chunks
+  if (catalog.mode === "rag" && lastUser) {
+    const vectors = await getCatalogVectors(docId);
+    if (vectors && vectors.length === chunks.length) {
+      const q = await embedQuery(lastUser.text);
+      const idx = topKIndices(q, vectors, 16);
+      candidateChunks = idx.map((i) => chunks[i]);
+      attachPdf = false; // do NOT send the whole (huge) PDF
+    }
+    // If vectors missing or mismatched, fall back to full behavior (attachPdf stays true, candidateChunks stays chunks).
+  }
+
+  // Read the full PDF from Blob only when needed (full mode).
+  const pdfBytes = attachPdf ? await getCatalogPdfBytes(docId) : null;
+
+  const candidates = candidateChunks
     .map((c) => `[${c.id}] (Seite ${c.page}) ${c.text}`)
     .join("\n");
 
@@ -29,7 +46,12 @@ export async function POST(req: Request) {
     ? `\n\nZUSÄTZLICHER KONTEXT (vom Betreiber gepflegt, beachte ihn):\n${catalog.notes.trim()}\n`
     : "";
 
-  const system = `Du bist ein Assistent für genau ein PDF: "${catalog.name}".
+  const ragOnlyInstruction = attachPdf
+    ? ""
+    : "\nBeantworte die Frage AUSSCHLIESSLICH auf Basis der unten aufgeführten Textauszüge und zitiere deren [[chunk-id]].";
+
+  const system = attachPdf
+    ? `Du bist ein Assistent für genau ein PDF: "${catalog.name}".
 Das vollständige PDF ist angehängt — lies es direkt und vollständig, inklusive Tabellen, Maße und Spalten. Gib Tabellen bei Bedarf als Markdown-Tabelle aus.
 Antworte auf Deutsch, präzise. Wenn etwas nicht im Dokument steht, sage das ehrlich.${notesBlock}
 
@@ -40,9 +62,20 @@ ZITATE:
 
 === ZITIER-KANDIDATEN ===
 ${candidates}
+=== ENDE ===`
+    : `Du bist ein Assistent für genau ein PDF: "${catalog.name}".${ragOnlyInstruction}
+Antworte auf Deutsch, präzise. Wenn etwas nicht in den Auszügen steht, sage das ehrlich.${notesBlock}
+
+ZITATE:
+- Setze hinter jede Aussage einen Marker im Format [[chunk-id]] (genau EINE id pro Klammerpaar).
+- Mehrere Quellen: mehrere Marker direkt hintereinander, z. B. [[p5-b1]][[p5-b3]]. Fasse NIEMALS mehrere ids in ein Klammerpaar zusammen (kein [[p5-b1, p5-b3]]).
+- Verwende AUSSCHLIESSLICH chunk-ids aus der folgenden Liste. Erfinde keine. Wähle den Chunk, dessen Seite/Inhalt am besten zu deiner Aussage passt.
+
+=== ZITIER-KANDIDATEN ===
+${candidates}
 === ENDE ===`;
 
-  // Build model messages; attach the PDF to the latest user turn.
+  // Build model messages; attach the PDF to the latest user turn (full mode only).
   const modelMessages: ModelMessage[] = messages.map((m, i) => {
     const isLastUser = i === messages.length - 1 && m.role === "user";
     if (isLastUser && pdfBytes) {
@@ -66,8 +99,9 @@ ${candidates}
   // Resolve cited ids -> page + bbox from the COMPLETE text (citations need the
   // whole answer, so they're computed once the stream ends). Robust to whatever
   // bracket form Gemini emits ([[id]], [[id1]][[id2]], or [[id1], [id2]]).
-  const byId = new Map(chunks.map((c) => [c.id, c]));
-  const allowed = new Set(chunks.map((c) => c.id));
+  // Use candidateChunks so every id Gemini emits is resolvable in both modes.
+  const byId = new Map(candidateChunks.map((c) => [c.id, c]));
+  const allowed = new Set(candidateChunks.map((c) => c.id));
   const buildCitations = (text: string): Citation[] => {
     const blocks = text.match(/\[\[[\s\S]*?\]\]/g) ?? [];
     const citedIds = [

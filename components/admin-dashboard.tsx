@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { upload } from "@vercel/blob/client";
 import { BASE_PATH } from "@/lib/base-path";
 import type { CatalogMeta } from "@/lib/catalog";
 
@@ -44,19 +45,43 @@ export function AdminLogin() {
 
 export function AdminDashboard({ catalogs }: { catalogs: CatalogMeta[] }) {
   const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<string>("");
 
-  const upload = async (e: React.FormEvent<HTMLFormElement>) => {
+  const doUpload = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const form = new FormData(e.currentTarget);
-    if (!(form.get("file") as File)?.size) return;
+    const input = e.currentTarget.elements.namedItem("file") as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+      alert("Bitte eine PDF-Datei wählen.");
+      return;
+    }
     setBusy(true);
-    const res = await fetch(api("/api/admin/catalogs"), {
-      method: "POST",
-      body: form,
-    });
-    setBusy(false);
-    if (res.ok) window.location.reload();
-    else alert((await res.json()).error ?? "Upload fehlgeschlagen.");
+    try {
+      setStatus("Datei wird hochgeladen…");
+      const blob = await upload(`pending/${file.name}`, file, {
+        access: "private",
+        handleUploadUrl: api("/api/admin/blob-upload"),
+        contentType: "application/pdf",
+        multipart: true,
+      });
+      setStatus("Wird verarbeitet (Text + KI)…");
+      const res = await fetch(api("/api/admin/ingest"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pathname: blob.pathname, filename: file.name }),
+      });
+      if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(msg || "Verarbeitung fehlgeschlagen.");
+      }
+      window.location.reload();
+    } catch (err) {
+      alert(`Upload fehlgeschlagen: ${(err as Error).message}`);
+    } finally {
+      setBusy(false);
+      setStatus("");
+    }
   };
 
   const saveNotes = async (id: string, notes: string): Promise<boolean> => {
@@ -83,14 +108,20 @@ export function AdminDashboard({ catalogs }: { catalogs: CatalogMeta[] }) {
       <img src={`${BASE_PATH}/igus-logo.svg`} alt="igus" className="mb-4 h-5 w-auto" />
       <h1 className="text-2xl font-semibold">Kataloge verwalten</h1>
 
-      <form onSubmit={upload} className="mt-6 flex items-center gap-3 rounded-md border p-4">
-        <input type="file" name="file" accept="application/pdf" />
-        <button
-          disabled={busy}
-          className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-50"
-        >
-          {busy ? "Wird verarbeitet…" : "Hochladen"}
-        </button>
+      <form onSubmit={doUpload} className="mt-6 rounded-md border p-4">
+        <div className="flex items-center gap-3">
+          <input type="file" name="file" accept="application/pdf" />
+          <button
+            disabled={busy}
+            className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-50"
+          >
+            {busy ? "Bitte warten…" : "Hochladen"}
+          </button>
+          {status && <span className="text-sm text-muted-foreground">{status}</span>}
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Große PDFs (auch hunderte Seiten) werden jetzt unterstützt.
+        </p>
       </form>
 
       <ul className="mt-8 space-y-4">
