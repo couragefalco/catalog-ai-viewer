@@ -123,4 +123,12 @@ describe("store", () => {
     const got = await getCatalog("legacy");
     expect(got?.mode).toBe("full");
   });
+
+  it("listCatalogs ignores vector blobs", async () => {
+    await saveCatalog(record("a1"), new Uint8Array([1]));
+    await saveCatalogVectors("a1", [[0.1, 0.2]]);
+    const list = await listCatalogs();
+    expect(list).toHaveLength(1);
+    expect(list[0].id).toBe("a1");
+  });
 });

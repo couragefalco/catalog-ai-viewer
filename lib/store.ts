@@ -19,7 +19,7 @@ export async function listCatalogs(): Promise<CatalogMeta[]> {
   const { blobs } = await list({ prefix: PREFIX });
   const ids = blobs
     .map((b) => b.pathname)
-    .filter((p) => p.endsWith(".json"))
+    .filter((p) => p.endsWith(".json") && !p.endsWith(".vec.json"))
     .map((p) => p.slice(PREFIX.length, -".json".length));
   const records = await Promise.all(ids.map((id) => getCatalog(id)));
   return records
