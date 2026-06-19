@@ -4,12 +4,15 @@ import type { CatalogMeta, CatalogRecord } from "./catalog";
 const PREFIX = "catalogs/";
 const jsonKey = (id: string) => `${PREFIX}${id}.json`;
 const pdfKey = (id: string) => `${PREFIX}${id}.pdf`;
+const vecKey = (id: string) => `${PREFIX}${id}.vec.json`;
 const ACCESS = { access: "private" as const };
 
 export async function getCatalog(id: string): Promise<CatalogRecord | null> {
   const res = await get(jsonKey(id), ACCESS);
   if (!res || res.statusCode !== 200 || !res.stream) return null;
-  return (await new Response(res.stream).json()) as CatalogRecord;
+  const record = (await new Response(res.stream).json()) as CatalogRecord;
+  // Altdaten ohne mode-Feld auf "full" normalisieren
+  return { ...record, mode: record.mode ?? "full" };
 }
 
 export async function listCatalogs(): Promise<CatalogMeta[]> {
@@ -75,7 +78,34 @@ export async function patchCatalog(
 }
 
 export async function removeCatalog(id: string): Promise<void> {
-  await Promise.all([del(jsonKey(id)), del(pdfKey(id))]);
+  await Promise.all([del(jsonKey(id)), del(pdfKey(id)), del(vecKey(id))]);
+}
+
+export async function saveCatalogVectors(
+  id: string,
+  vectors: number[][],
+): Promise<void> {
+  await put(vecKey(id), JSON.stringify(vectors), {
+    access: "private",
+    allowOverwrite: true,
+    contentType: "application/json",
+  });
+}
+
+export async function getCatalogVectors(
+  id: string,
+): Promise<number[][] | null> {
+  const res = await get(vecKey(id), ACCESS);
+  if (!res || res.statusCode !== 200 || !res.stream) return null;
+  return (await new Response(res.stream).json()) as number[][];
+}
+
+export async function getBlobBytes(
+  pathname: string,
+): Promise<Uint8Array | null> {
+  const res = await get(pathname, ACCESS);
+  if (!res || res.statusCode !== 200 || !res.stream) return null;
+  return new Uint8Array(await new Response(res.stream).arrayBuffer());
 }
 
 async function idExists(id: string): Promise<boolean> {

@@ -37,6 +37,8 @@ import {
   removeCatalog,
   uniqueId,
   getCatalogPdfStream,
+  saveCatalogVectors,
+  getCatalogVectors,
 } from "../lib/store";
 import type { CatalogRecord } from "../lib/catalog";
 
@@ -47,6 +49,7 @@ const record = (id: string): CatalogRecord => ({
   notes: "",
   exampleQuestions: [],
   createdAt: "2026-06-18T00:00:00.000Z",
+  mode: "full",
   chunks: [{ id: "p1-b0", page: 1, bbox: { x: 0, y: 0, w: 1, h: 1 }, text: "hallo welt" }],
 });
 
@@ -92,5 +95,32 @@ describe("store", () => {
     expect(stream).not.toBeNull();
     const bytes = new Uint8Array(await new Response(stream!).arrayBuffer());
     expect([...bytes]).toEqual([9, 8, 7]);
+  });
+
+  it("vector round-trip: saveCatalogVectors + getCatalogVectors", async () => {
+    const vecs = [[1, 0, 0], [0, 1, 0]];
+    await saveCatalogVectors("v1", vecs);
+    const got = await getCatalogVectors("v1");
+    expect(got).toEqual(vecs);
+  });
+
+  it("getCatalogVectors returns null for missing id", async () => {
+    expect(await getCatalogVectors("nonexistent")).toBeNull();
+  });
+
+  it("getCatalog normalizes missing mode to 'full'", async () => {
+    // Altdatensatz ohne mode-Feld direkt in den Speicher schreiben
+    const legacyRecord = {
+      id: "legacy",
+      name: "Altdaten",
+      numPages: 5,
+      notes: "",
+      exampleQuestions: [],
+      createdAt: "2025-01-01T00:00:00.000Z",
+      chunks: [],
+    };
+    mem.set("catalogs/legacy.json", JSON.stringify(legacyRecord));
+    const got = await getCatalog("legacy");
+    expect(got?.mode).toBe("full");
   });
 });

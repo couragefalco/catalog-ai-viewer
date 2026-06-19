@@ -41,6 +41,7 @@ export async function POST(req: Request) {
     notes: enriched.notes,
     exampleQuestions: enriched.exampleQuestions,
     createdAt: new Date().toISOString(),
+    mode: numPages >= 20 ? "rag" : "full",
     chunks,
   };
   await saveCatalog(record, bytes);

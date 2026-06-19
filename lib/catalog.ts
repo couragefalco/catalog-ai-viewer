@@ -16,6 +16,7 @@ export type CatalogMeta = {
   notes: string; // human/AI retrieval hints injected into the chat prompt
   exampleQuestions: string[];
   createdAt: string; // ISO timestamp
+  mode: "full" | "rag"; // "rag" = Embedding-Retrieval (>= RAG_PAGE_THRESHOLD Seiten)
 };
 
 export type CatalogRecord = CatalogMeta & { chunks: Chunk[] };
