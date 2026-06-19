@@ -1,46 +1,37 @@
 import Link from "next/link";
-import { FileText } from "lucide-react";
-import { listCatalogs } from "@/lib/store";
 import { BASE_PATH } from "@/lib/base-path";
+import { listCatalogs } from "@/lib/store";
+import { CatalogBrowser } from "@/components/catalog-browser";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const catalogs = await listCatalogs();
 
-  return (
-    <main className="mx-auto max-w-2xl px-6 py-16">
-      <img src={`${BASE_PATH}/igus-logo.svg`} alt="igus" className="mb-4 h-5 w-auto" />
-      <h1 className="text-2xl font-semibold">Katalog-Assistent</h1>
-      <p className="text-muted-foreground mt-2 text-sm">
-        Wähle einen Katalog, um Fragen dazu zu stellen.
-      </p>
-      <ul className="mt-8 space-y-2">
-        {catalogs.length === 0 ? (
-          <li className="text-muted-foreground text-sm">
-            Noch keine Kataloge. Lade im{" "}
-            <Link href="/admin" className="underline">
-              Admin-Bereich
-            </Link>{" "}
-            einen hoch.
-          </li>
-        ) : (
-          catalogs.map((c) => (
-            <li key={c.id}>
-              <Link
-                href={`/catalog/${c.id}`}
-                className="hover:bg-muted flex items-center gap-3 rounded-md border px-4 py-3"
-              >
-                <FileText className="h-4 w-4 shrink-0" />
-                <span className="flex-1">{c.name}</span>
-                <span className="text-muted-foreground font-mono text-xs">
-                  {c.numPages} S.
-                </span>
-              </Link>
-            </li>
-          ))
-        )}
-      </ul>
-    </main>
-  );
+  if (catalogs.length === 0) {
+    return (
+      <main className="mx-auto max-w-2xl px-6 py-16">
+        <img src={`${BASE_PATH}/igus-logo.svg`} alt="igus" className="mb-4 h-5 w-auto" />
+        <h1 className="text-2xl font-semibold">Katalog-Assistent</h1>
+        <p className="text-muted-foreground mt-4 text-sm">
+          Noch keine Kataloge. Lade im{" "}
+          <Link href="/admin" className="underline">
+            Admin-Bereich
+          </Link>{" "}
+          einen hoch.
+        </p>
+      </main>
+    );
+  }
+
+  // Map stored metadata to the viewer's client shape; the PDF is served by the
+  // private streaming route (browser cannot read the blob directly).
+  const clientCatalogs = catalogs.map((c) => ({
+    id: c.id,
+    name: c.name,
+    numPages: c.numPages,
+    file: `api/catalog/${c.id}/pdf`,
+  }));
+
+  return <CatalogBrowser catalogs={clientCatalogs} />;
 }
