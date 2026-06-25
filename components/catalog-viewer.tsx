@@ -73,8 +73,8 @@ export function CatalogViewer({
     activeCitation && activeCitation.page === page ? activeCitation : null;
   const pageWidth = (zoom / 100) * BASE_WIDTH;
   const fileUrl = catalog.file.startsWith("/")
-    ? `${BASE_PATH}${catalog.file}`
-    : `${BASE_PATH}/${catalog.file}`;
+    ? `${ASSET_PATH}${catalog.file}`
+    : `${ASSET_PATH}/${catalog.file}`;
 
   const q = query.trim().toLowerCase();
   const filtered = catalogs

@@ -27,7 +27,7 @@ import {
   SourcesContent,
   SourcesTrigger,
 } from "@/components/ai-elements/sources";
-import { BASE_PATH } from "@/lib/base-path";
+import { ASSET_PATH } from "@/lib/base-path";
 import type { Citation } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -80,7 +80,7 @@ export function ChatPanel({ docId, onCite, activeCitationId }: ChatPanelProps) {
     setInput("");
     setLoading(true);
     try {
-      const res = await fetch(`${BASE_PATH}/api/chat`, {
+      const res = await fetch(`${ASSET_PATH}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: history, docId }),
