@@ -8,7 +8,7 @@ export {
   canUploadCatalog,
 } from "./account-limits";
 export type { WorkspacePlan } from "./account-limits";
-import { canAskQuestion, type WorkspacePlan } from "./account-limits";
+import type { WorkspacePlan } from "./account-limits";
 
 export type Workspace = {
   id: string;
@@ -125,48 +125,43 @@ export async function getOwnedCatalogEntry(
   blobCatalogId: string,
   userId: string,
 ): Promise<CatalogEntry | null> {
-  const workspace = await getOrCreateWorkspaceForUser({ id: userId });
   const supabase = createSupabaseAdminClient();
-  const res = await supabase
+  const catalog = await supabase
     .from("catalog_entries")
     .select("*")
-    .eq("workspace_id", workspace.id)
     .eq("blob_catalog_id", blobCatalogId)
     .maybeSingle();
-  if (res.error) throw res.error;
-  return (res.data as CatalogEntry | null) ?? null;
+  if (catalog.error) throw catalog.error;
+  if (!catalog.data) return null;
+
+  const membership = await supabase
+    .from("workspace_members")
+    .select("workspace_id")
+    .eq("workspace_id", catalog.data.workspace_id)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (membership.error) throw membership.error;
+  if (!membership.data) return null;
+
+  return catalog.data as CatalogEntry;
 }
 
 export async function incrementQuestionCount(
   blobCatalogId: string,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
   const supabase = createSupabaseAdminClient();
-  const current = await supabase
-    .from("catalog_entries")
-    .select("id, question_count, question_limit, workspace_id, workspaces(plan)")
-    .eq("blob_catalog_id", blobCatalogId)
+  const result = await supabase
+    .rpc("increment_question_count_if_allowed", {
+      input_blob_catalog_id: blobCatalogId,
+    })
     .maybeSingle();
-  if (current.error) throw current.error;
-  if (!current.data) return { ok: true };
+  if (result.error) throw result.error;
+  if (!result.data) return { ok: true };
 
-  const row = current.data as {
-    id: string;
-    question_count: number;
-    workspaces: { plan: WorkspacePlan } | { plan: WorkspacePlan }[] | null;
-  };
-  const workspace = Array.isArray(row.workspaces)
-    ? row.workspaces[0]
-    : row.workspaces;
-  const allowed = canAskQuestion({
-    plan: workspace?.plan ?? "free",
-    questionCount: row.question_count,
-  });
-  if (!allowed.ok) return allowed;
+  const row = result.data as { ok: boolean; reason: string | null };
+  if (!row.ok) {
+    return { ok: false, reason: row.reason ?? "FREE_QUESTION_LIMIT" };
+  }
 
-  const updated = await supabase
-    .from("catalog_entries")
-    .update({ question_count: row.question_count + 1 })
-    .eq("id", row.id);
-  if (updated.error) throw updated.error;
   return { ok: true };
 }

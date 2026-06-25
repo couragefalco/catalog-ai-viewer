@@ -70,6 +70,52 @@ as $$
   where user_id = auth.uid()
 $$;
 
+create or replace function public.increment_question_count_if_allowed(input_blob_catalog_id text)
+returns table(ok boolean, reason text)
+language plpgsql
+security definer
+set search_path = public, pg_catalog
+as $$
+begin
+  return query
+  with updated as (
+    update public.catalog_entries as ce
+    set
+      question_count = ce.question_count + 1,
+      updated_at = now()
+    from public.workspaces as w
+    where ce.workspace_id = w.id
+      and ce.blob_catalog_id = input_blob_catalog_id
+      and (
+        w.plan = 'paid'
+        or (w.plan = 'free' and ce.question_count < 3)
+      )
+    returning 1
+  )
+  select true, null::text
+  from updated;
+
+  if found then
+    return;
+  end if;
+
+  return query
+  select false, 'FREE_QUESTION_LIMIT'::text
+  from public.catalog_entries as ce
+  join public.workspaces as w on w.id = ce.workspace_id
+  where ce.blob_catalog_id = input_blob_catalog_id
+    and w.plan = 'free'
+    and ce.question_count >= 3;
+
+  if found then
+    return;
+  end if;
+
+  return query
+  select true, null::text;
+end;
+$$;
+
 alter table public.workspaces enable row level security;
 alter table public.workspace_members enable row level security;
 alter table public.catalog_entries enable row level security;
