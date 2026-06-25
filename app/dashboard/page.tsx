@@ -1,27 +1,20 @@
 import { redirect } from "next/navigation";
+import { CatalogDashboard } from "@/components/dashboard/catalog-dashboard";
+import { getOrCreateWorkspaceForUser, listWorkspaceCatalogs } from "@/lib/account";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) redirect("/login");
 
-  if (!user) {
-    redirect("/login");
-  }
+  const workspace = await getOrCreateWorkspaceForUser({
+    id: data.user.id,
+    email: data.user.email,
+  });
+  const catalogs = await listWorkspaceCatalogs(workspace.id);
 
-  return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center px-6 py-16">
-      <div className="space-y-2">
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">
-          Signed in as {user.email ?? "authenticated user"}.
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Task 5 placeholder. Task 6 will replace this page.
-        </p>
-      </div>
-    </main>
-  );
+  return <CatalogDashboard workspace={workspace} catalogs={catalogs} />;
 }
