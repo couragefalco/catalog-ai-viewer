@@ -42,7 +42,6 @@ export async function POST(req: Request) {
     return Response.json({ error: "Hochgeladene Datei nicht gefunden." }, { status: 404 });
   }
 
-  let catalogId: string | null = null;
   try {
     const workspace = await getOrCreateWorkspaceForUser({
       id: data.user.id,
@@ -50,7 +49,6 @@ export async function POST(req: Request) {
     });
     const existing = await listWorkspaceCatalogs(workspace.id);
     const result = await processUpload(bytes, filename);
-    catalogId = result.id;
     const allowed = canUploadCatalog({
       plan: workspace.plan,
       existingCatalogs: existing.length,
@@ -84,10 +82,6 @@ export async function POST(req: Request) {
     await removeBlob(pathname);
     return Response.json({ ...result, catalogEntryId: entry.id });
   } catch {
-    await removeBlob(pathname).catch(() => undefined);
-    if (catalogId) {
-      await removeCatalog(catalogId).catch(() => undefined);
-    }
     return Response.json({ error: "PDF konnte nicht verarbeitet werden." }, { status: 422 });
   }
 }
