@@ -3,14 +3,17 @@
 import { upload } from "@vercel/blob/client";
 import { useState } from "react";
 import { BASE_PATH } from "@/lib/base-path";
+import { pendingUploadPrefix } from "@/lib/pending-upload";
 import type { CatalogEntry, Workspace } from "@/lib/account";
 
 const api = (path: string) => `${BASE_PATH}${path}`;
 
 export function CatalogDashboard({
+  currentUserId,
   workspace,
   catalogs,
 }: {
+  currentUserId: string;
   workspace: Workspace;
   catalogs: CatalogEntry[];
 }) {
@@ -29,7 +32,7 @@ export function CatalogDashboard({
     setBusy(true);
     try {
       setStatus("Datei wird hochgeladen...");
-      const blob = await upload(`pending/${file.name}`, file, {
+      const blob = await upload(`${pendingUploadPrefix(currentUserId)}${file.name}`, file, {
         access: "private",
         handleUploadUrl: api("/api/admin/blob-upload"),
         contentType: "application/pdf",

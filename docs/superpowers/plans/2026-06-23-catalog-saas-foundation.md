@@ -34,69 +34,69 @@
 
 **New files**
 
-- `supabase/migrations/20260623_catalog_saas_foundation.sql`  
+- `supabase/migrations/20260623_catalog_saas_foundation.sql`
   Creates workspaces, workspace members, catalog ownership rows, share links, question usage, and RLS policies.
 
-- `lib/supabase/env.ts`  
+- `lib/supabase/env.ts`
   Centralizes server and public Supabase env access. Throws clear errors when required env vars are missing.
 
-- `lib/supabase/server.ts`  
+- `lib/supabase/server.ts`
   Creates a cookie-aware server Supabase client for route handlers and server components.
 
-- `lib/supabase/admin.ts`  
+- `lib/supabase/admin.ts`
   Creates a server-only Supabase admin client with the service role key.
 
-- `lib/supabase/client.ts`  
+- `lib/supabase/client.ts`
   Creates the browser Supabase client with the anon key.
 
-- `lib/account.ts`  
+- `lib/account.ts`
   Server helpers for current user, workspace bootstrap, catalog ownership, plan limit checks, and usage increments.
 
-- `app/auth/callback/route.ts`  
+- `app/auth/callback/route.ts`
   Exchanges OAuth code for a Supabase session and redirects into the app.
 
-- `app/login/page.tsx`  
+- `app/login/page.tsx`
   Public login page with Google login.
 
-- `components/login-form.tsx`  
+- `components/login-form.tsx`
   Client component that starts Google OAuth.
 
-- `app/dashboard/page.tsx`  
+- `app/dashboard/page.tsx`
   Authenticated catalog dashboard replacing the old `/admin` entry point for normal users.
 
-- `components/dashboard/catalog-dashboard.tsx`  
+- `components/dashboard/catalog-dashboard.tsx`
   Authenticated upload and catalog management UI.
 
-- `test/account.test.ts`  
+- `test/account.test.ts`
   Unit tests for free-plan limit helpers.
 
 **Modified files**
 
-- `package.json`, `package-lock.json`  
+- `package.json`, `package-lock.json`
   Add Supabase packages.
 
-- `.env.example`, `.env.local`  
+- `.env.example`, `.env.local`
   Add Supabase env names. `.env.local` values are filled from 1Password locally and never committed.
 
-- `middleware.ts`  
+- `middleware.ts`
   Refresh Supabase sessions for authenticated routes.
 
-- `lib/process-upload.ts`  
+- `lib/process-upload.ts`
   Accept workspace ownership context and persist a catalog DB row after Blob save.
 
-- `app/api/admin/blob-upload/route.ts`  
+- `app/api/admin/blob-upload/route.ts`
   Replace `requireAdmin()` with Supabase user auth and free-plan checks.
 
-- `app/api/admin/ingest/route.ts`  
+- `app/api/admin/ingest/route.ts`
   Replace `requireAdmin()` with Supabase user auth, enforce page and catalog limits, then create the catalog ownership row.
 
-- `app/api/admin/catalogs/[id]/route.ts`  
+- `app/api/admin/catalogs/[id]/route.ts`
   Require ownership before patch or delete.
 
-- `app/catalog/[id]/page.tsx`  
+- `app/catalog/[id]/page.tsx`
   Support public share slugs later without breaking current catalog IDs. For this plan, keep existing IDs but ensure catalog metadata can come from the owner's DB row.
 
-- `app/page.tsx`  
+- `app/page.tsx`
   Become a product landing page with login/upload CTA instead of listing every catalog globally.
 
 **Deferred to later plans**

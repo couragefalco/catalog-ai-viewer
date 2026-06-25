@@ -16,5 +16,11 @@ export default async function DashboardPage() {
   });
   const catalogs = await listWorkspaceCatalogs(workspace.id);
 
-  return <CatalogDashboard workspace={workspace} catalogs={catalogs} />;
+  return (
+    <CatalogDashboard
+      currentUserId={data.user.id}
+      workspace={workspace}
+      catalogs={catalogs}
+    />
+  );
 }

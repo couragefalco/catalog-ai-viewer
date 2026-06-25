@@ -72,19 +72,19 @@ The name should be understandable to both younger buyers and older sales or prod
 
 Recommended shortlist:
 
-1. **AskCatalog**  
+1. **AskCatalog**
    Clear, literal, easy to say, and easy to understand. Strong fit for the core action: ask questions about a catalog.
 
-2. **CatalogPilot**  
+2. **CatalogPilot**
    Slightly more productized and brandable. Implies guidance through a catalog, not just chat.
 
-3. **CatalogWise**  
+3. **CatalogWise**
    Friendly and broadly understandable. Less direct than AskCatalog, but more flexible as a brand.
 
-4. **CatalogLink**  
+4. **CatalogLink**
    Very simple and sales-friendly. Good if the product emphasizes shareable links and analytics.
 
-5. **CatalogTalk**  
+5. **CatalogTalk**
    Conversational and approachable. More casual, but still clear.
 
 Current recommendation: **AskCatalog** if a good domain is available. It is direct enough for a 50-year-old sales leader and still clean enough for modern SaaS positioning.

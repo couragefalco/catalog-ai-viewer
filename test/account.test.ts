@@ -77,4 +77,22 @@ describe("account module wiring", () => {
       "create or replace function public.increment_question_count_if_allowed",
     );
   });
+
+  it("limits catalog update and delete RLS policies to workspace owners", () => {
+    const migrationSource = readFileSync(
+      resolve("supabase/migrations/20260623_catalog_saas_foundation.sql"),
+      "utf8",
+    );
+
+    expect(migrationSource).toContain('create policy "owners can update catalogs"');
+    expect(migrationSource).toContain('create policy "owners can delete catalogs"');
+    expect(migrationSource).not.toContain('create policy "members can update catalogs"');
+    expect(migrationSource).not.toContain('create policy "members can delete catalogs"');
+    expect(migrationSource).toMatch(
+      /on public\.catalog_entries for update[\s\S]+from public\.workspaces w[\s\S]+w\.owner_user_id = auth\.uid\(\)/,
+    );
+    expect(migrationSource).toMatch(
+      /on public\.catalog_entries for delete[\s\S]+from public\.workspaces w[\s\S]+w\.owner_user_id = auth\.uid\(\)/,
+    );
+  });
 });

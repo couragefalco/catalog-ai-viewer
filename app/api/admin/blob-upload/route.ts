@@ -1,4 +1,5 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
+import { pendingUploadPrefix } from "@/lib/pending-upload";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -15,9 +16,12 @@ export async function POST(req: Request): Promise<Response> {
     const json = await handleUpload({
       request: req,
       body,
-      onBeforeGenerateToken: async () => {
+      onBeforeGenerateToken: async (pathname) => {
         const user = await requireUser();
         if (!user) throw new Error("Nicht autorisiert");
+        if (!pathname.startsWith(pendingUploadPrefix(user.id))) {
+          throw new Error("Ungültiger Upload-Pfad.");
+        }
         return {
           addRandomSuffix: true,
           allowedContentTypes: ["application/pdf"],

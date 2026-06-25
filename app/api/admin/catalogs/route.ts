@@ -1,11 +1,13 @@
-import { requireAdmin } from "@/lib/admin-auth";
-import { processUpload } from "@/lib/process-upload";
+import { processCatalogUploadForUser } from "@/lib/catalog-upload";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
 export async function POST(req: Request) {
-  if (!(await requireAdmin())) {
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) {
     return Response.json({ error: "Nicht autorisiert" }, { status: 401 });
   }
   const form = await req.formData();
@@ -15,8 +17,15 @@ export async function POST(req: Request) {
   }
   const bytes = new Uint8Array(await file.arrayBuffer());
   try {
-    const result = await processUpload(bytes, file.name);
-    return Response.json(result);
+    const upload = await processCatalogUploadForUser({
+      user: { id: data.user.id, email: data.user.email },
+      bytes,
+      filename: file.name,
+    });
+    if (!upload.ok) {
+      return Response.json({ error: upload.error }, { status: upload.status });
+    }
+    return Response.json(upload.result);
   } catch {
     return Response.json({ error: "PDF konnte nicht verarbeitet werden." }, { status: 422 });
   }

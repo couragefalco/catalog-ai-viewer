@@ -1,27 +1,10 @@
-import {
-  FREE_QUESTION_LIMIT,
-  canUploadCatalog,
-  createCatalogEntry,
-  getOrCreateWorkspaceForUser,
-  listWorkspaceCatalogs,
-} from "@/lib/account";
-import { getBlobBytes, removeBlob, removeCatalog } from "@/lib/store";
-import { processUpload } from "@/lib/process-upload";
+import { processCatalogUploadForUser } from "@/lib/catalog-upload";
+import { pendingUploadPrefix } from "@/lib/pending-upload";
+import { getBlobBytes, removeBlob } from "@/lib/store";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
-
-function slugFromName(name: string) {
-  return (
-    name
-      .toLowerCase()
-      .replace(/\.pdf$/i, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 80) || "catalog"
-  );
-}
 
 export async function POST(req: Request) {
   const supabase = await createSupabaseServerClient();
@@ -37,50 +20,27 @@ export async function POST(req: Request) {
   if (!pathname || !filename) {
     return Response.json({ error: "pathname und filename erforderlich" }, { status: 400 });
   }
+  if (!pathname.startsWith(pendingUploadPrefix(data.user.id))) {
+    return Response.json({ error: "Ungültiger Upload-Pfad." }, { status: 403 });
+  }
   const bytes = await getBlobBytes(pathname);
   if (!bytes) {
     return Response.json({ error: "Hochgeladene Datei nicht gefunden." }, { status: 404 });
   }
 
   try {
-    const workspace = await getOrCreateWorkspaceForUser({
-      id: data.user.id,
-      email: data.user.email,
+    const upload = await processCatalogUploadForUser({
+      user: { id: data.user.id, email: data.user.email },
+      bytes,
+      filename,
     });
-    const existing = await listWorkspaceCatalogs(workspace.id);
-    const result = await processUpload(bytes, filename);
-    const allowed = canUploadCatalog({
-      plan: workspace.plan,
-      existingCatalogs: existing.length,
-      pages: result.numPages,
-    });
-    if (!allowed.ok) {
+    if (!upload.ok) {
       await removeBlob(pathname);
-      await removeCatalog(result.id);
-      return Response.json(
-        {
-          error:
-            allowed.reason === "FREE_PAGE_LIMIT"
-              ? "Der kostenlose Plan erlaubt Kataloge bis 20 Seiten."
-              : "Der kostenlose Plan erlaubt einen Katalog.",
-        },
-        { status: 402 },
-      );
+      return Response.json({ error: upload.error }, { status: upload.status });
     }
 
-    const entry = await createCatalogEntry({
-      workspaceId: workspace.id,
-      blobCatalogId: result.id,
-      name: result.name,
-      slug: slugFromName(result.name),
-      notes: result.notes,
-      exampleQuestions: result.exampleQuestions,
-      numPages: result.numPages,
-      mode: result.mode,
-      questionLimit: workspace.plan === "free" ? FREE_QUESTION_LIMIT : 1000,
-    });
     await removeBlob(pathname);
-    return Response.json({ ...result, catalogEntryId: entry.id });
+    return Response.json(upload.result);
   } catch {
     return Response.json({ error: "PDF konnte nicht verarbeitet werden." }, { status: 422 });
   }

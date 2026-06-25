@@ -1,4 +1,4 @@
-import { getOwnedCatalogEntry } from "@/lib/account";
+import { deleteCatalogEntryForOwner, getOwnedCatalogEntry } from "@/lib/account";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { patchCatalog, removeCatalog } from "@/lib/store";
 
@@ -41,5 +41,6 @@ export async function DELETE(
     return Response.json({ error: "Nicht gefunden" }, { status: 404 });
   }
   await removeCatalog(id);
+  await deleteCatalogEntryForOwner(id, data.user.id);
   return Response.json({ ok: true });
 }

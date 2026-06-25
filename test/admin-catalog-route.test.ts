@@ -3,16 +3,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   createSupabaseAdminClient,
   createSupabaseServerClient,
+  deleteCalls,
   patchCatalog,
   removeCatalog,
   state,
 } = vi.hoisted(() => ({
   createSupabaseAdminClient: vi.fn(),
   createSupabaseServerClient: vi.fn(),
+  deleteCalls: [] as unknown[],
   patchCatalog: vi.fn(),
   removeCatalog: vi.fn(),
   state: {
-    catalog: null as { blob_catalog_id: string; workspace_id: string } | null,
+    catalog: null as { id: string; blob_catalog_id: string; workspace_id: string } | null,
     workspace: null as { id: string } | null,
   },
 }));
@@ -42,7 +44,9 @@ import { DELETE, PATCH } from "../app/api/admin/catalogs/[id]/route";
 describe("admin catalog route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    deleteCalls.length = 0;
     state.catalog = {
+      id: "entry-1",
       blob_catalog_id: "catalog-1",
       workspace_id: "ws-1",
     };
@@ -65,6 +69,17 @@ describe("admin catalog route", () => {
                   error: null,
                 }),
               }),
+            }),
+            delete: () => ({
+              eq: (column: string, value: string) => {
+                deleteCalls.push({ column, value });
+                return {
+                  eq: (nextColumn: string, nextValue: string) => {
+                    deleteCalls.push({ column: nextColumn, value: nextValue });
+                    return Promise.resolve({ error: null });
+                  },
+                };
+              },
             }),
           };
         }
@@ -157,5 +172,22 @@ describe("admin catalog route", () => {
     expect(response.status).toBe(404);
     expect(createSupabaseAdminClient).toHaveBeenCalledTimes(1);
     expect(removeCatalog).not.toHaveBeenCalled();
+  });
+
+  it("removes the owned catalog entry when deleting a catalog", async () => {
+    const response = await DELETE(
+      new Request("http://localhost/api/admin/catalogs/catalog-1", {
+        method: "DELETE",
+      }),
+      { params: Promise.resolve({ id: "catalog-1" }) },
+    );
+
+    await expect(response.json()).resolves.toEqual({ ok: true });
+    expect(response.status).toBe(200);
+    expect(removeCatalog).toHaveBeenCalledWith("catalog-1");
+    expect(deleteCalls).toEqual([
+      { column: "blob_catalog_id", value: "catalog-1" },
+      { column: "workspace_id", value: "ws-1" },
+    ]);
   });
 });

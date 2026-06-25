@@ -26,6 +26,8 @@ vi.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient,
 }));
 
+vi.mock("server-only", () => ({}));
+
 vi.mock("@/lib/account", () => ({
   FREE_QUESTION_LIMIT: 3,
   getOrCreateWorkspaceForUser,
@@ -78,7 +80,7 @@ describe("admin ingest route", () => {
       new Request("http://localhost/api/admin/ingest", {
         method: "POST",
         body: JSON.stringify({
-          pathname: "pending/test.pdf",
+          pathname: "pending/user-1/test.pdf",
           filename: "test.pdf",
         }),
         headers: {
@@ -93,5 +95,27 @@ describe("admin ingest route", () => {
     expect(response.status).toBe(422);
     expect(removeBlob).not.toHaveBeenCalled();
     expect(removeCatalog).not.toHaveBeenCalled();
+  });
+
+  it("rejects pending uploads outside the signed-in user's namespace", async () => {
+    const response = await POST(
+      new Request("http://localhost/api/admin/ingest", {
+        method: "POST",
+        body: JSON.stringify({
+          pathname: "pending/user-2/test.pdf",
+          filename: "test.pdf",
+        }),
+        headers: {
+          "content-type": "application/json",
+        },
+      }),
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      error: "Ungültiger Upload-Pfad.",
+    });
+    expect(response.status).toBe(403);
+    expect(getBlobBytes).not.toHaveBeenCalled();
+    expect(removeBlob).not.toHaveBeenCalled();
   });
 });

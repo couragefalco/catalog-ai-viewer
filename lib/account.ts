@@ -171,6 +171,23 @@ export async function getOwnedCatalogEntry(
   return catalog.data as CatalogEntry;
 }
 
+export async function deleteCatalogEntryForOwner(
+  blobCatalogId: string,
+  userId: string,
+): Promise<boolean> {
+  const owned = await getOwnedCatalogEntry(blobCatalogId, userId);
+  if (!owned) return false;
+
+  const supabase = createSupabaseAdminClient();
+  const deleted = await supabase
+    .from("catalog_entries")
+    .delete()
+    .eq("blob_catalog_id", blobCatalogId)
+    .eq("workspace_id", owned.workspace_id);
+  if (deleted.error) throw deleted.error;
+  return true;
+}
+
 export async function incrementQuestionCount(
   blobCatalogId: string,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {

@@ -144,15 +144,38 @@ on public.catalog_entries for select
 using (workspace_id = any(public.current_workspace_ids()));
 
 drop policy if exists "members can update catalogs" on public.catalog_entries;
-create policy "members can update catalogs"
+drop policy if exists "owners can update catalogs" on public.catalog_entries;
+create policy "owners can update catalogs"
 on public.catalog_entries for update
-using (workspace_id = any(public.current_workspace_ids()))
-with check (workspace_id = any(public.current_workspace_ids()));
+using (
+  exists (
+    select 1
+    from public.workspaces w
+    where w.id = catalog_entries.workspace_id
+      and w.owner_user_id = auth.uid()
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.workspaces w
+    where w.id = catalog_entries.workspace_id
+      and w.owner_user_id = auth.uid()
+  )
+);
 
 drop policy if exists "members can delete catalogs" on public.catalog_entries;
-create policy "members can delete catalogs"
+drop policy if exists "owners can delete catalogs" on public.catalog_entries;
+create policy "owners can delete catalogs"
 on public.catalog_entries for delete
-using (workspace_id = any(public.current_workspace_ids()));
+using (
+  exists (
+    select 1
+    from public.workspaces w
+    where w.id = catalog_entries.workspace_id
+      and w.owner_user_id = auth.uid()
+  )
+);
 
 drop policy if exists "members can read share links" on public.share_links;
 create policy "members can read share links"
