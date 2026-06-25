@@ -49,3 +49,11 @@ All passed.
 ## Notes
 
 - The worktree already contained unrelated untracked files under `docs/`. They were left untouched.
+
+## Follow-up Fixes
+
+- Tightened `getOwnedCatalogEntry()` so it now verifies `workspaces.owner_user_id` for catalog mutations.
+- Preserved member-readable lookup behavior by moving the broader membership check into `getCatalogEntryForMember()`.
+- Restored the chat free-limit branch to the existing plain-text protocol: answer text followed by `\x1e[]` with `Content-Type: text/plain; charset=utf-8`.
+- Strengthened `test/admin-catalog-route.test.ts` to exercise the real ownership helper path with mocked admin queries.
+- Strengthened `test/chat-route.test.ts` to consume the limit response as text and assert the protocol headers.

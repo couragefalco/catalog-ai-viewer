@@ -87,10 +87,12 @@ describe("chat route", () => {
       }),
     );
 
-    await expect(response.json()).resolves.toEqual({
-      text: "Das kostenlose Fragenlimit für diesen Katalog ist erreicht.",
-      citations: [],
-    });
+    await expect(response.text()).resolves.toBe(
+      "Das kostenlose Fragenlimit für diesen Katalog ist erreicht.\x1e[]",
+    );
+    expect(response.headers.get("content-type")).toBe(
+      "text/plain; charset=utf-8",
+    );
     expect(incrementQuestionCount).toHaveBeenCalledWith("catalog-1");
     expect(streamText).not.toHaveBeenCalled();
   });

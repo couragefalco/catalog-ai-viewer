@@ -121,7 +121,7 @@ export async function createCatalogEntry(input: {
   return res.data as CatalogEntry;
 }
 
-export async function getOwnedCatalogEntry(
+export async function getCatalogEntryForMember(
   blobCatalogId: string,
   userId: string,
 ): Promise<CatalogEntry | null> {
@@ -142,6 +142,31 @@ export async function getOwnedCatalogEntry(
     .maybeSingle();
   if (membership.error) throw membership.error;
   if (!membership.data) return null;
+
+  return catalog.data as CatalogEntry;
+}
+
+export async function getOwnedCatalogEntry(
+  blobCatalogId: string,
+  userId: string,
+): Promise<CatalogEntry | null> {
+  const supabase = createSupabaseAdminClient();
+  const catalog = await supabase
+    .from("catalog_entries")
+    .select("*")
+    .eq("blob_catalog_id", blobCatalogId)
+    .maybeSingle();
+  if (catalog.error) throw catalog.error;
+  if (!catalog.data) return null;
+
+  const workspace = await supabase
+    .from("workspaces")
+    .select("id")
+    .eq("id", catalog.data.workspace_id)
+    .eq("owner_user_id", userId)
+    .maybeSingle();
+  if (workspace.error) throw workspace.error;
+  if (!workspace.data) return null;
 
   return catalog.data as CatalogEntry;
 }

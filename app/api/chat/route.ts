@@ -10,6 +10,16 @@ export const runtime = "nodejs";
 
 type InMsg = { role: "user" | "assistant"; text: string };
 
+function createPlainTextProtocolResponse(text: string) {
+  return new Response(`${text}\x1e[]`, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Accel-Buffering": "no",
+    },
+  });
+}
+
 export async function POST(req: Request) {
   const { messages, docId }: { messages: InMsg[]; docId: string } =
     await req.json();
@@ -21,10 +31,9 @@ export async function POST(req: Request) {
 
   const usage = await incrementQuestionCount(docId);
   if (!usage.ok) {
-    return Response.json({
-      text: "Das kostenlose Fragenlimit für diesen Katalog ist erreicht.",
-      citations: [],
-    });
+    return createPlainTextProtocolResponse(
+      "Das kostenlose Fragenlimit für diesen Katalog ist erreicht.",
+    );
   }
 
   const chunks = catalog.chunks;
