@@ -1,9 +1,5 @@
-import { requireAdmin } from "@/lib/admin-auth";
-import { listCatalogs } from "@/lib/store";
-import { AdminDashboard, AdminLogin } from "@/components/admin-dashboard";
+import { redirect } from "next/navigation";
 
-export default async function AdminPage() {
-  if (!(await requireAdmin())) return <AdminLogin />;
-  const catalogs = await listCatalogs();
-  return <AdminDashboard catalogs={catalogs} />;
+export default function AdminPage() {
+  redirect("/dashboard");
 }
