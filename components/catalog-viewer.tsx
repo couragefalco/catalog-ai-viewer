@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 export type Catalog = { id: string; name: string; numPages: number; file: string };
 import type { Citation } from "@/lib/types";
-import { BASE_PATH } from "@/lib/base-path";
+import { ASSET_PATH, BASE_PATH } from "@/lib/base-path";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -43,7 +43,7 @@ import {
 
 // Worker served locally from /public, prefixed with the basePath so it resolves
 // both standalone and behind a reverse proxy.
-pdfjs.GlobalWorkerOptions.workerSrc = `${BASE_PATH}/pdf.worker.min.mjs`;
+pdfjs.GlobalWorkerOptions.workerSrc = `${ASSET_PATH}/pdf.worker.min.mjs`;
 
 const ZOOMS = [60, 75, 90, 100, 125, 150, 200];
 const BASE_WIDTH = 560;
@@ -155,7 +155,7 @@ export function CatalogViewer({
           )}
           <div className="flex min-w-0 items-center gap-2.5">
             <img
-              src={`${BASE_PATH}/igus-logo.svg`}
+              src={`${ASSET_PATH}/igus-logo.svg`}
               alt="igus"
               className="h-5 w-auto shrink-0"
             />
