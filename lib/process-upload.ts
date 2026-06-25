@@ -7,7 +7,15 @@ import type { CatalogRecord } from "@/lib/catalog";
 export async function processUpload(
   bytes: Uint8Array,
   filename: string,
-): Promise<{ id: string; name: string; numPages: number; mode: "full" | "rag" }> {
+  _options?: { workspaceId?: string; questionLimit?: number },
+): Promise<{
+  id: string;
+  name: string;
+  numPages: number;
+  mode: "full" | "rag";
+  notes: string;
+  exampleQuestions: string[];
+}> {
   const { numPages, chunks } = ingestPdf(bytes); // throws on bad PDF
   const id = await uniqueId(slugify(filename) || "katalog");
   const sampleText = chunks.slice(0, 40).map((c) => c.text).join("\n");
@@ -31,5 +39,12 @@ export async function processUpload(
     const vectors = await embedTexts(chunks.map((c) => c.text));
     await saveCatalogVectors(id, vectors);
   }
-  return { id, name: record.name, numPages, mode };
+  return {
+    id,
+    name: record.name,
+    numPages,
+    mode,
+    notes: record.notes,
+    exampleQuestions: record.exampleQuestions,
+  };
 }
