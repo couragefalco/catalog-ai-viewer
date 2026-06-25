@@ -205,7 +205,7 @@ export function ChatPanel({ docId, onCite, activeCitationId }: ChatPanelProps) {
 
       {/* Suggestions */}
       <div className="px-3 pb-2">
-        <Suggestions>
+        <Suggestions className="w-full flex-wrap items-start gap-2 whitespace-normal">
           {SUGGESTIONS.map((s) => (
             <Suggestion key={s} suggestion={s} onClick={send} />
           ))}

@@ -780,6 +780,7 @@ export const PromptInput = ({
         multiple={multiple}
         onChange={handleChange}
         ref={inputRef}
+        style={{ display: "none" }}
         title="Upload files"
         type="file"
       />

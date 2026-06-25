@@ -38,7 +38,7 @@ export default async function IgusCatalogPage() {
     id: catalog.id,
     name: catalog.name,
     numPages: catalog.numPages,
-    file: `api/catalog/${catalog.id}/pdf`,
+    file: `/api/catalog/${catalog.id}/pdf`,
   }));
 
   return <CatalogBrowser catalogs={clientCatalogs} />;

@@ -40,7 +40,6 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { ThemeToggle } from "@/components/theme-toggle";
 
 // Worker served locally from /public, prefixed with the basePath so it resolves
 // both standalone and behind a reverse proxy.
@@ -73,7 +72,9 @@ export function CatalogViewer({
   const highlight =
     activeCitation && activeCitation.page === page ? activeCitation : null;
   const pageWidth = (zoom / 100) * BASE_WIDTH;
-  const fileUrl = `${BASE_PATH}/${catalog.file}`;
+  const fileUrl = catalog.file.startsWith("/")
+    ? `${BASE_PATH}${catalog.file}`
+    : `${BASE_PATH}/${catalog.file}`;
 
   const q = query.trim().toLowerCase();
   const filtered = catalogs
@@ -199,7 +200,6 @@ export function CatalogViewer({
 
             <Separator orientation="vertical" className="mx-1 h-6" />
 
-            <ThemeToggle />
             <ToolbarButton label="Drehen">
               <RotateCw className="h-4 w-4" />
             </ToolbarButton>

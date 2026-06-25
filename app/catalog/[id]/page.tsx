@@ -17,7 +17,7 @@ export default async function CatalogPage({
         id: catalog.id,
         name: catalog.name,
         numPages: catalog.numPages,
-        file: `api/catalog/${catalog.id}/pdf`,
+        file: `/api/catalog/${catalog.id}/pdf`,
       }}
     />
   );
