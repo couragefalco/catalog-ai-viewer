@@ -16,6 +16,8 @@
     "@ai-sdk/react": "^3.0.197",
     "@base-ui/react": "^1.5.0",
     "@radix-ui/react-use-controllable-state": "^1.2.2",
+    "@supabase/ssr": "^0.12.0",
+    "@supabase/supabase-js": "^2.108.2",
     "@vercel/blob": "^2.4.1",
     "@xyflow/react": "^12.11.0",
     "ai": "^6.0.195",
