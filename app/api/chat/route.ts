@@ -1,5 +1,6 @@
 import { google } from "@ai-sdk/google";
 import { streamText, type ModelMessage } from "ai";
+import { incrementQuestionCount } from "@/lib/account";
 import { getCatalog, getCatalogPdfBytes, getCatalogVectors } from "@/lib/store";
 import { embedQuery, topKIndices } from "@/lib/embeddings";
 import type { Citation } from "@/lib/types";
@@ -17,6 +18,15 @@ export async function POST(req: Request) {
   if (!catalog) {
     return Response.json({ text: "Unbekanntes Dokument.", citations: [] });
   }
+
+  const usage = await incrementQuestionCount(docId);
+  if (!usage.ok) {
+    return Response.json({
+      text: "Das kostenlose Fragenlimit für diesen Katalog ist erreicht.",
+      citations: [],
+    });
+  }
+
   const chunks = catalog.chunks;
 
   // Determine retrieval mode: rag (large catalogs) vs full (small, default).
