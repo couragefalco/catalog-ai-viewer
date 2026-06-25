@@ -61,6 +61,8 @@ create table if not exists public.question_usage (
 create or replace function public.current_workspace_ids()
 returns uuid[]
 language sql
+security definer
+set search_path = public, pg_catalog
 stable
 as $$
   select coalesce(array_agg(workspace_id), '{}'::uuid[])
