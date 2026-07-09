@@ -34,7 +34,7 @@ function baseProps(): AnalyticsProps {
     host: window.location.hostname,
     path: window.location.pathname,
     catalog_route_id: getCatalogRouteId(),
-    customer_code: getAllowedQueryParam("customer") ?? getAllowedQueryParam("code"),
+    link_id: getAllowedQueryParam("id"),
     link_campaign: getAllowedQueryParam("campaign"),
   };
 }
