@@ -1,3 +1,4 @@
+import { createAzure } from "@ai-sdk/azure";
 import { google } from "@ai-sdk/google";
 import { streamText, type ModelMessage } from "ai";
 import { incrementQuestionCount } from "@/lib/account";
@@ -9,6 +10,36 @@ export const maxDuration = 60;
 export const runtime = "nodejs";
 
 type InMsg = { role: "user" | "assistant"; text: string };
+
+function getChatModel() {
+  const azureApiKey = process.env.AZURE_API_KEY;
+  const azureChatDeployment = process.env.AZURE_CHAT_DEPLOYMENT;
+  const azureResourceName = process.env.AZURE_RESOURCE_NAME;
+  const azureOpenAiEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
+  const hasAzure =
+    azureApiKey &&
+    azureChatDeployment &&
+    (azureResourceName || azureOpenAiEndpoint);
+
+  if (hasAzure) {
+    const azure = createAzure({
+      apiKey: azureApiKey,
+      resourceName: azureResourceName,
+      baseURL: azureOpenAiEndpoint,
+    });
+    return azure.chat(azureChatDeployment);
+  }
+
+  return google("gemini-2.5-flash");
+}
+
+function summarizeError(error: unknown) {
+  if (error instanceof Error) return error.message.slice(0, 240);
+  if (typeof error === "object" && error && "message" in error) {
+    return String(error.message).slice(0, 240);
+  }
+  return String(error).slice(0, 240);
+}
 
 function createPlainTextProtocolResponse(text: string) {
   return new Response(`${text}\x1e[]`, {
@@ -29,7 +60,10 @@ export async function POST(req: Request) {
     return Response.json({ text: "Unbekanntes Dokument.", citations: [] });
   }
 
-  const usage = await incrementQuestionCount(docId);
+  const usage = await incrementQuestionCount(docId).catch((error: unknown) => {
+    console.warn("question count unavailable", summarizeError(error));
+    return { ok: true as const };
+  });
   if (!usage.ok) {
     return createPlainTextProtocolResponse(
       "Das kostenlose Fragenlimit für diesen Katalog ist erreicht.",
@@ -109,11 +143,19 @@ ${candidates}
     return { role: m.role, content: m.text };
   });
 
-  const result = streamText({
-    model: google("gemini-2.5-flash"),
-    system,
-    messages: modelMessages,
-  });
+  let result: ReturnType<typeof streamText>;
+  try {
+    result = streamText({
+      model: getChatModel(),
+      system,
+      messages: modelMessages,
+    });
+  } catch (error) {
+    console.error("chat stream setup failed", error);
+    return createPlainTextProtocolResponse(
+      "Es gab einen Fehler bei der Anfrage.",
+    );
+  }
 
   // Resolve cited ids -> page + bbox from the COMPLETE text (citations need the
   // whole answer, so they're computed once the stream ends). Robust to whatever
