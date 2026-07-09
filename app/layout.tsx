@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
+import { AnalyticsConsentBanner } from "@/components/analytics-consent-banner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -62,6 +63,7 @@ export default function RootLayout({
     >
       <body className="bg-background text-foreground min-h-full flex flex-col">
         <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
+        <AnalyticsConsentBanner />
         <Toaster />
       </body>
     </html>

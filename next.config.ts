@@ -8,9 +8,29 @@ const catalogAssetPath = "/catalog";
 const nextConfig: NextConfig = {
   ...(basePath ? { basePath } : {}),
   assetPrefix: basePath ? undefined : catalogAssetPath,
+  skipTrailingSlashRedirect: true,
   async rewrites() {
-    if (basePath) return [];
+    const postHogProxy = [
+      {
+        source: "/ph/static/:path*",
+        destination: "https://eu-assets.i.posthog.com/static/:path*",
+      },
+      {
+        source: "/ph/:path*",
+        destination: "https://eu.i.posthog.com/:path*",
+      },
+    ];
+    if (basePath) return postHogProxy;
     return [
+      ...postHogProxy,
+      {
+        source: `${catalogAssetPath}/ph/static/:path*`,
+        destination: "https://eu-assets.i.posthog.com/static/:path*",
+      },
+      {
+        source: `${catalogAssetPath}/ph/:path*`,
+        destination: "https://eu.i.posthog.com/:path*",
+      },
       {
         source: `${catalogAssetPath}/_next/:path*`,
         destination: "/_next/:path*",

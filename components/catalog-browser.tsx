@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { ChatPanel } from "@/components/chat-panel";
+import { track } from "@/lib/analytics";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -31,16 +32,35 @@ export function CatalogBrowser({ catalogs }: { catalogs: Catalog[] }) {
   );
 
   const handleCite = (citation: Citation) => {
+    track("catalog_citation_clicked", {
+      catalog_id: catalog.id,
+      catalog_name: catalog.name,
+      citation_id: citation.id,
+      citation_page: citation.page,
+    });
     setActiveCitation(citation);
     setPage(citation.page);
   };
 
   const handlePageChange = (next: number) => {
+    track("catalog_page_changed", {
+      catalog_id: catalog.id,
+      catalog_name: catalog.name,
+      from_page: page,
+      to_page: next,
+    });
     setPage(next);
     setActiveCitation(null);
   };
 
   const handleSelectCatalog = (id: string) => {
+    const nextCatalog = catalogs.find((c) => c.id === id);
+    track("catalog_selected", {
+      catalog_id: id,
+      catalog_name: nextCatalog?.name,
+      previous_catalog_id: catalog.id,
+      previous_catalog_name: catalog.name,
+    });
     setDocId(id);
     setPage(1);
     setActiveCitation(null);

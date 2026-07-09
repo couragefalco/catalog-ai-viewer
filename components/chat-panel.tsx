@@ -27,6 +27,7 @@ import {
   SourcesContent,
   SourcesTrigger,
 } from "@/components/ai-elements/sources";
+import { track } from "@/lib/analytics";
 import { ASSET_PATH } from "@/lib/base-path";
 import type { Citation } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -60,8 +61,11 @@ export function ChatPanel({ docId, onCite, activeCitationId }: ChatPanelProps) {
 
   // Reset the conversation when the active catalog changes.
   useEffect(() => {
-    setMessages([]);
-    setInput("");
+    const timeout = window.setTimeout(() => {
+      setMessages([]);
+      setInput("");
+    }, 0);
+    return () => window.clearTimeout(timeout);
   }, [docId]);
 
   const send = async (text: string) => {
@@ -76,6 +80,12 @@ export function ChatPanel({ docId, onCite, activeCitationId }: ChatPanelProps) {
       role: m.role,
       text: m.text,
     }));
+    track("catalog_question_asked", {
+      catalog_id: docId,
+      question_text: value,
+      question_length: value.length,
+      conversation_messages: messages.length,
+    });
     setMessages((m) => [...m, userMsg]);
     setInput("");
     setLoading(true);
@@ -129,6 +139,11 @@ export function ChatPanel({ docId, onCite, activeCitationId }: ChatPanelProps) {
         }
       }
       const finalText = splitText(buf);
+      track("catalog_answer_received", {
+        catalog_id: docId,
+        answer_length: finalText.length,
+        citation_count: citations.length,
+      });
       setMessages((m) =>
         started
           ? m.map((msg) =>

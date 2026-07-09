@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { CatalogBrowser } from "@/components/catalog-browser";
-import { listCatalogs } from "@/lib/store";
+import { getOrderedClientCatalogs } from "./catalog-list";
 
 export const dynamic = "force-dynamic";
 
 export default async function IgusCatalogPage() {
-  const catalogs = await listCatalogs();
+  const clientCatalogs = await getOrderedClientCatalogs();
 
-  if (catalogs.length === 0) {
+  if (clientCatalogs.length === 0) {
     return (
       <main className="mx-auto max-w-2xl px-6 py-16">
         <img src="/igus-logo.svg" alt="igus" className="mb-4 h-5 w-auto" />
@@ -22,24 +22,6 @@ export default async function IgusCatalogPage() {
       </main>
     );
   }
-
-  const rank = (catalog: { id: string; numPages: number }) =>
-    catalog.numPages === 8 && /kompaktkatalog/i.test(catalog.id)
-      ? 0
-      : /kompaktkatalog/i.test(catalog.id)
-        ? 1
-        : 2;
-
-  const ordered = [...catalogs].sort(
-    (a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name),
-  );
-
-  const clientCatalogs = ordered.map((catalog) => ({
-    id: catalog.id,
-    name: catalog.name,
-    numPages: catalog.numPages,
-    file: `/api/catalog/${catalog.id}/pdf`,
-  }));
 
   return <CatalogBrowser catalogs={clientCatalogs} />;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import {
   ChevronLeft,
@@ -15,7 +15,8 @@ import {
 } from "lucide-react";
 export type Catalog = { id: string; name: string; numPages: number; file: string };
 import type { Citation } from "@/lib/types";
-import { ASSET_PATH, BASE_PATH } from "@/lib/base-path";
+import { track } from "@/lib/analytics";
+import { ASSET_PATH } from "@/lib/base-path";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -88,6 +89,15 @@ export function CatalogViewer({
     const next = ZOOMS[Math.min(ZOOMS.length - 1, Math.max(0, i + dir))];
     setZoom(next ?? zoom);
   };
+
+  useEffect(() => {
+    track("catalog_opened", {
+      catalog_id: catalog.id,
+      catalog_name: catalog.name,
+      catalog_pages: catalog.numPages,
+      catalog_count: catalogs?.length ?? 1,
+    });
+  }, [catalog.id, catalog.name, catalog.numPages, catalogs?.length]);
 
   return (
     <SidebarProvider
@@ -206,7 +216,17 @@ export function CatalogViewer({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button asChild variant="ghost" size="icon" className="h-8 w-8">
-                  <a href={fileUrl} download aria-label="PDF herunterladen">
+                  <a
+                    href={fileUrl}
+                    download
+                    aria-label="PDF herunterladen"
+                    onClick={() =>
+                      track("catalog_pdf_downloaded", {
+                        catalog_id: catalog.id,
+                        catalog_name: catalog.name,
+                      })
+                    }
+                  >
                     <Download className="h-4 w-4" />
                   </a>
                 </Button>

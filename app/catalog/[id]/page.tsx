@@ -1,6 +1,7 @@
-import { notFound } from "next/navigation";
-import { getCatalog } from "@/lib/store";
+import { CatalogBrowser } from "@/components/catalog-browser";
 import { CatalogWorkspace } from "@/components/catalog-workspace";
+import { getCatalog } from "@/lib/store";
+import { getOrderedClientCatalogs } from "../catalog-list";
 
 export default async function CatalogPage({
   params,
@@ -9,7 +10,10 @@ export default async function CatalogPage({
 }) {
   const { id } = await params;
   const catalog = await getCatalog(id);
-  if (!catalog) notFound();
+  if (!catalog) {
+    const catalogs = await getOrderedClientCatalogs();
+    return <CatalogBrowser catalogs={catalogs} />;
+  }
 
   return (
     <CatalogWorkspace
