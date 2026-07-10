@@ -1,4 +1,3 @@
-import * as mupdf from "mupdf";
 import type { Chunk } from "./catalog";
 
 const clamp = (v: number) => Math.max(0, Math.min(1, v));
@@ -24,10 +23,13 @@ export const slugify = (name: string): string =>
 // Extract page text as positioned blocks. One chunk per text block, with a
 // normalized bbox so the viewer can draw a citation highlight. Mirrors the
 // original offline ingest so existing chunk ids stay stable.
-export function ingestPdf(bytes: Uint8Array): {
+// mupdf wird lazy geladen: das ESM-Modul nutzt Top-Level-Await, das CJS-Tooling
+// (tsx-Skripte, vitest) nur über dynamic import konsumieren kann.
+export async function ingestPdf(bytes: Uint8Array): Promise<{
   numPages: number;
   chunks: Chunk[];
-} {
+}> {
+  const mupdf = await import("mupdf");
   const doc = mupdf.Document.openDocument(bytes, "application/pdf");
   const numPages = doc.countPages();
   const chunks: Chunk[] = [];

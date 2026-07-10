@@ -2,7 +2,12 @@ import { createAzure } from "@ai-sdk/azure";
 import { google } from "@ai-sdk/google";
 import { cosineSimilarity, streamText, type ModelMessage } from "ai";
 import { embedQuery } from "@/lib/embeddings";
-import { getCatalog, getCatalogVectors, listCatalogs } from "@/lib/store";
+import {
+  getCatalog,
+  getCatalogVectors,
+  getSummaryVectors,
+  listCatalogs,
+} from "@/lib/store";
 import type { Chunk } from "@/lib/catalog";
 import type { Citation } from "@/lib/types";
 
@@ -65,9 +70,50 @@ function lexicalScore(question: string, catalogName: string, text: string) {
   return matched / uniqueTerms.length + phraseBoost;
 }
 
+// Bei großen Beständen nicht mehr jeden Katalog laden: erst auf Katalogebene
+// vorfiltern (Summary-Vektoren + Namens-/Notiz-Match), dann nur die Treffer
+// chunk-genau bewerten.
+const MAX_CANDIDATE_CATALOGS = 12;
+
+function selectCatalogs(
+  question: string,
+  metas: Awaited<ReturnType<typeof listCatalogs>>,
+  queryVector: number[] | null,
+  summaries: Awaited<ReturnType<typeof getSummaryVectors>>,
+) {
+  if (metas.length <= MAX_CANDIDATE_CATALOGS) return metas;
+  return metas
+    .map((meta) => {
+      const summary = summaries?.[meta.id];
+      const vectorScore =
+        queryVector && summary && summary.length === queryVector.length
+          ? cosineSimilarity(queryVector, summary)
+          : -Infinity;
+      const textScore = lexicalScore(
+        question,
+        meta.name,
+        `${meta.category ?? ""} ${meta.quickId ?? ""} ${meta.series ?? ""} ${meta.notes}`,
+      );
+      const score = Number.isFinite(vectorScore)
+        ? vectorScore + textScore * 0.05
+        : textScore;
+      return { meta, score };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_CANDIDATE_CATALOGS)
+    .map((entry) => entry.meta);
+}
+
 async function getCandidates(question: string): Promise<Candidate[]> {
-  const metas = await listCatalogs();
-  const queryVector = await embedQuery(question).catch(() => null);
+  const [allMetas, queryVector] = await Promise.all([
+    listCatalogs(),
+    embedQuery(question).catch(() => null),
+  ]);
+  const summaries =
+    allMetas.length > MAX_CANDIDATE_CATALOGS && queryVector
+      ? await getSummaryVectors().catch(() => null)
+      : null;
+  const metas = selectCatalogs(question, allMetas, queryVector, summaries);
   const records = await Promise.all(
     metas.map(async (meta, catalogIndex) => {
       const [record, vectors] = await Promise.all([

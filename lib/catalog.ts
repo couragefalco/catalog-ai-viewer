@@ -17,6 +17,10 @@ export type CatalogMeta = {
   exampleQuestions: string[];
   createdAt: string; // ISO timestamp
   mode: "full" | "rag"; // "rag" = Embedding-Retrieval (>= RAG_PAGE_THRESHOLD Seiten)
+  category?: string; // Business Unit / Produktbereich, gruppiert die Sidebar
+  series?: string; // Serienbezeichnung aus den Asset-Metadaten
+  quickId?: string; // QuickID aus den Asset-Metadaten (z. B. "IGU-A")
+  sourceFile?: string; // Original-Dateiname des Uploads (für Re-Importe)
 };
 
 export type CatalogRecord = CatalogMeta & { chunks: Chunk[] };

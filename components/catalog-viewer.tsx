@@ -13,7 +13,18 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-export type Catalog = { id: string; name: string; numPages: number; file: string };
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+export type Catalog = {
+  id: string;
+  name: string;
+  numPages: number;
+  file: string;
+  category?: string;
+};
 import type { Citation } from "@/lib/types";
 import { track } from "@/lib/analytics";
 import { ASSET_PATH } from "@/lib/base-path";
@@ -31,6 +42,7 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarInput,
   SidebarInset,
@@ -49,6 +61,28 @@ pdfjs.GlobalWorkerOptions.workerSrc = `${ASSET_PATH}/pdf.worker.min.mjs`;
 const ZOOMS = [60, 75, 90, 100, 125, 150, 200];
 const BASE_WIDTH = 560;
 const PAGE_ASPECT = 1.384;
+
+// Kataloge ohne Kategorie (ältere Uploads) landen in dieser Gruppe.
+const FALLBACK_GROUP = "Weitere Kataloge";
+// Nicht-Produkt-Gruppen ans Ende der Liste, Produktbereiche zuerst.
+const TRAILING_GROUPS = new Set([
+  FALLBACK_GROUP,
+  "Allgemein & Übersicht",
+  "Technical_data (DATA)",
+]);
+
+function groupCatalogs(catalogs: Catalog[]): [string, Catalog[]][] {
+  const groups = new Map<string, Catalog[]>();
+  for (const catalog of catalogs) {
+    const key = catalog.category?.trim() || FALLBACK_GROUP;
+    groups.set(key, [...(groups.get(key) ?? []), catalog]);
+  }
+  return [...groups.entries()].sort(([a], [b]) => {
+    const ta = TRAILING_GROUPS.has(a) ? 1 : 0;
+    const tb = TRAILING_GROUPS.has(b) ? 1 : 0;
+    return ta - tb || a.localeCompare(b, "de");
+  });
+}
 
 type CatalogViewerProps = {
   catalog: Catalog;
@@ -70,6 +104,7 @@ export function CatalogViewer({
   const [zoom, setZoom] = useState(100);
   const [numPages, setNumPages] = useState(catalog.numPages);
   const [query, setQuery] = useState("");
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const highlight =
     activeCitation &&
     activeCitation.page === page &&
@@ -84,9 +119,17 @@ export function CatalogViewer({
   const q = query.trim().toLowerCase();
   const filtered = catalogs
     ? q
-      ? catalogs.filter((c) => c.name.toLowerCase().includes(q))
+      ? catalogs.filter(
+          (c) =>
+            c.name.toLowerCase().includes(q) ||
+            (c.category ?? "").toLowerCase().includes(q),
+        )
       : catalogs
     : [];
+  const groups = groupCatalogs(filtered);
+  // Während einer Suche alle Treffer-Gruppen aufklappen, sonst gemerkten
+  // Zustand nutzen (Standard: alle zu, damit die Liste überschaubar bleibt).
+  const isGroupOpen = (group: string) => (q ? true : (openGroups[group] ?? false));
 
   const stepZoom = (dir: 1 | -1) => {
     const i = ZOOMS.indexOf(zoom);
@@ -128,34 +171,55 @@ export function CatalogViewer({
             />
           </SidebarHeader>
           <SidebarContent>
-            <SidebarGroup>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {filtered.length === 0 ? (
-                    <p className="text-muted-foreground px-2 py-4 text-center text-xs">
-                      Kein Katalog gefunden.
-                    </p>
-                  ) : (
-                    filtered.map((c) => (
-                      <SidebarMenuItem key={c.id}>
-                        <SidebarMenuButton
-                          isActive={c.id === catalog.id}
-                          onClick={() => onSelectCatalog(c.id)}
-                          tooltip={c.name}
-                          className="pr-8"
-                        >
-                          <FileText className="shrink-0" />
-                          <span className="truncate">{c.name}</span>
-                        </SidebarMenuButton>
-                        <SidebarMenuBadge className="font-mono">
-                          {c.numPages}
-                        </SidebarMenuBadge>
-                      </SidebarMenuItem>
-                    ))
-                  )}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
+            {filtered.length === 0 ? (
+              <p className="text-muted-foreground px-2 py-4 text-center text-xs">
+                Kein Katalog gefunden.
+              </p>
+            ) : (
+              groups.map(([group, items]) => (
+                <Collapsible
+                  key={group}
+                  open={isGroupOpen(group)}
+                  onOpenChange={(open) =>
+                    setOpenGroups((current) => ({ ...current, [group]: open }))
+                  }
+                >
+                  <SidebarGroup className="py-1.5">
+                    <SidebarGroupLabel asChild>
+                      <CollapsibleTrigger className="group/label w-full">
+                        <ChevronRight className="mr-1 h-3.5 w-3.5 shrink-0 transition-transform group-data-[state=open]/label:rotate-90" />
+                        <span className="truncate">{group}</span>
+                        <span className="text-muted-foreground ml-auto shrink-0 pl-2 font-mono text-[0.65rem] tabular-nums">
+                          {items.length}
+                        </span>
+                      </CollapsibleTrigger>
+                    </SidebarGroupLabel>
+                    <CollapsibleContent>
+                      <SidebarGroupContent>
+                        <SidebarMenu>
+                          {items.map((c) => (
+                            <SidebarMenuItem key={c.id}>
+                              <SidebarMenuButton
+                                isActive={c.id === catalog.id}
+                                onClick={() => onSelectCatalog(c.id)}
+                                tooltip={c.name}
+                                className="pr-8"
+                              >
+                                <FileText className="shrink-0" />
+                                <span className="truncate">{c.name}</span>
+                              </SidebarMenuButton>
+                              <SidebarMenuBadge className="font-mono">
+                                {c.numPages}
+                              </SidebarMenuBadge>
+                            </SidebarMenuItem>
+                          ))}
+                        </SidebarMenu>
+                      </SidebarGroupContent>
+                    </CollapsibleContent>
+                  </SidebarGroup>
+                </Collapsible>
+              ))
+            )}
           </SidebarContent>
         </Sidebar>
       )}

@@ -16,8 +16,8 @@ describe("ingestPdf", () => {
     readFileSync(join(__dirname, "fixtures/sample.pdf")),
   );
 
-  it("returns page count and chunk array", () => {
-    const result = ingestPdf(bytes);
+  it("returns page count and chunk array", async () => {
+    const result = await ingestPdf(bytes);
     expect(result.numPages).toBeGreaterThanOrEqual(1);
     expect(Array.isArray(result.chunks)).toBe(true);
     for (const c of result.chunks) {
