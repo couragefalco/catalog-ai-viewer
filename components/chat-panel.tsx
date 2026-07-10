@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { FileText } from "lucide-react";
+import { FileText, Library } from "lucide-react";
 import {
   Conversation,
   ConversationContent,
@@ -51,22 +51,41 @@ type ChatPanelProps = {
   docId: string;
   onCite: (citation: Citation) => void;
   activeCitationId: string | null;
+  enableGlobalChat?: boolean;
 };
 
-export function ChatPanel({ docId, onCite, activeCitationId }: ChatPanelProps) {
+type ChatScope = "document" | "global";
+
+export function ChatPanel({
+  docId,
+  onCite,
+  activeCitationId,
+  enableGlobalChat = false,
+}: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [scope, setScope] = useState<ChatScope>("document");
   const counter = useRef(0);
+  const previousDocId = useRef(docId);
+  const previousScope = useRef<ChatScope>("document");
+  const activeScope = enableGlobalChat ? scope : "document";
 
-  // Reset the conversation when the active catalog changes.
+  // Document chat is tied to the active catalog. Global chat stays intact when
+  // a source click opens another catalog in the viewer.
   useEffect(() => {
+    const docChanged = previousDocId.current !== docId;
+    const scopeChanged = previousScope.current !== activeScope;
+    previousDocId.current = docId;
+    previousScope.current = activeScope;
+    if (!scopeChanged && (!docChanged || activeScope === "global")) return;
+
     const timeout = window.setTimeout(() => {
       setMessages([]);
       setInput("");
     }, 0);
     return () => window.clearTimeout(timeout);
-  }, [docId]);
+  }, [docId, activeScope]);
 
   const send = async (text: string) => {
     const value = text.trim();
@@ -82,6 +101,7 @@ export function ChatPanel({ docId, onCite, activeCitationId }: ChatPanelProps) {
     }));
     track("catalog_question_asked", {
       catalog_id: docId,
+      chat_scope: activeScope,
       question_text: value,
       question_length: value.length,
       conversation_messages: messages.length,
@@ -90,10 +110,16 @@ export function ChatPanel({ docId, onCite, activeCitationId }: ChatPanelProps) {
     setInput("");
     setLoading(true);
     try {
-      const res = await fetch(`${ASSET_PATH}/api/chat`, {
+      const endpoint =
+        activeScope === "global" ? "/api/chat/global" : "/api/chat";
+      const body =
+        activeScope === "global"
+          ? { messages: history }
+          : { messages: history, docId };
+      const res = await fetch(`${ASSET_PATH}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history, docId }),
+        body: JSON.stringify(body),
       });
       if (!res.body) throw new Error("no stream");
 
@@ -141,6 +167,7 @@ export function ChatPanel({ docId, onCite, activeCitationId }: ChatPanelProps) {
       const finalText = splitText(buf);
       track("catalog_answer_received", {
         catalog_id: docId,
+        chat_scope: activeScope,
         answer_length: finalText.length,
         citation_count: citations.length,
       });
@@ -170,10 +197,41 @@ export function ChatPanel({ docId, onCite, activeCitationId }: ChatPanelProps) {
       {/* Header */}
       <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b px-4">
         <p className="shrink-0 text-sm font-medium">Dokumenten-Assistent</p>
-        <p className="text-muted-foreground flex items-center gap-1.5 text-right text-xs">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
-          Belegt · zitiert die genaue Seite &amp; Stelle
-        </p>
+        {enableGlobalChat ? (
+          <div className="grid shrink-0 grid-cols-2 rounded-md border bg-muted/40 p-0.5">
+            <button
+              type="button"
+              onClick={() => setScope("document")}
+              className={cn(
+                "inline-flex h-7 items-center justify-center gap-1.5 rounded px-2.5 text-xs font-medium transition",
+                activeScope === "document"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Dokument
+            </button>
+            <button
+              type="button"
+              onClick={() => setScope("global")}
+              className={cn(
+                "inline-flex h-7 items-center justify-center gap-1.5 rounded px-2.5 text-xs font-medium transition",
+                activeScope === "global"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Library className="h-3.5 w-3.5" />
+              Alle
+            </button>
+          </div>
+        ) : (
+          <p className="text-muted-foreground flex items-center gap-1.5 text-right text-xs">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            Belegt · zitiert die genaue Seite &amp; Stelle
+          </p>
+        )}
       </div>
 
       {/* Conversation */}
@@ -182,8 +240,16 @@ export function ChatPanel({ docId, onCite, activeCitationId }: ChatPanelProps) {
           {messages.length === 0 ? (
             <ConversationEmptyState
               icon={<FileText className="h-7 w-7" />}
-              title="Frag dieses Dokument"
-              description="Antworten sind im PDF belegt und zitieren die genaue Seite und Stelle."
+              title={
+                activeScope === "global"
+                  ? "Frag alle Kataloge"
+                  : "Frag dieses Dokument"
+              }
+              description={
+                activeScope === "global"
+                  ? "Antworten sind katalogübergreifend belegt."
+                  : "Antworten sind im PDF belegt und zitieren die genaue Seite und Stelle."
+              }
             />
           ) : (
             messages.map((m) => (
@@ -239,7 +305,11 @@ export function ChatPanel({ docId, onCite, activeCitationId }: ChatPanelProps) {
             <PromptInputTextarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Frag etwas zu diesem Dokument…"
+              placeholder={
+                activeScope === "global"
+                  ? "Frag etwas zu allen Katalogen…"
+                  : "Frag etwas zu diesem Dokument…"
+              }
             />
           </PromptInputBody>
           <PromptInputFooter>
@@ -329,7 +399,11 @@ function CitationSources({
             <span className="min-w-0">
               <span className="flex items-center gap-1.5 font-medium">
                 <FileText className="h-3 w-3 shrink-0 text-primary" />
-                Seite {citation.page}
+                <span className="truncate">
+                  {citation.catalogName
+                    ? `${citation.catalogName}, Seite ${citation.page}`
+                    : `Seite ${citation.page}`}
+                </span>
               </span>
               <span className="text-muted-foreground line-clamp-2 italic">
                 “{citation.snippet}”

@@ -2,6 +2,8 @@
 // viewer to jump to a page and draw the highlight.
 export type Citation = {
   id: string;
+  catalogId?: string;
+  catalogName?: string;
   page: number;
   bbox: { x: number; y: number; w: number; h: number };
   snippet: string;

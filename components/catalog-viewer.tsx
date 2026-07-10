@@ -71,7 +71,11 @@ export function CatalogViewer({
   const [numPages, setNumPages] = useState(catalog.numPages);
   const [query, setQuery] = useState("");
   const highlight =
-    activeCitation && activeCitation.page === page ? activeCitation : null;
+    activeCitation &&
+    activeCitation.page === page &&
+    (!activeCitation.catalogId || activeCitation.catalogId === catalog.id)
+      ? activeCitation
+      : null;
   const pageWidth = (zoom / 100) * BASE_WIDTH;
   const fileUrl = catalog.file.startsWith("/")
     ? `${ASSET_PATH}${catalog.file}`

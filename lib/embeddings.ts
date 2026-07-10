@@ -1,3 +1,4 @@
+import { createAzure } from "@ai-sdk/azure";
 import { google } from "@ai-sdk/google";
 import { embed, embedMany, cosineSimilarity } from "ai";
 
@@ -5,14 +6,35 @@ import { embed, embedMany, cosineSimilarity } from "ai";
 // kleinere Kataloge senden das gesamte PDF an Gemini.
 export const RAG_PAGE_THRESHOLD = 20;
 
-const MODEL = google.textEmbedding("gemini-embedding-001");
 // 768 Dimensionen halten die gespeicherten Vektoren klein; cosineSimilarity normalisiert sowieso.
 const providerOptions = { google: { outputDimensionality: 768 } };
+
+function getEmbeddingModel() {
+  const azureApiKey = process.env.AZURE_API_KEY;
+  const azureEmbeddingDeployment = process.env.AZURE_EMBEDDING_DEPLOYMENT;
+  const azureResourceName = process.env.AZURE_RESOURCE_NAME;
+  const azureOpenAiEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
+  const hasAzure =
+    azureApiKey &&
+    azureEmbeddingDeployment &&
+    (azureResourceName || azureOpenAiEndpoint);
+
+  if (hasAzure) {
+    const azure = createAzure({
+      apiKey: azureApiKey,
+      resourceName: azureResourceName,
+      baseURL: azureOpenAiEndpoint,
+    });
+    return azure.embedding(azureEmbeddingDeployment);
+  }
+
+  return google.textEmbedding("gemini-embedding-001");
+}
 
 export async function embedTexts(texts: string[]): Promise<number[][]> {
   if (texts.length === 0) return [];
   const { embeddings } = await embedMany({
-    model: MODEL,
+    model: getEmbeddingModel(),
     values: texts,
     providerOptions,
     maxParallelCalls: 2,
@@ -21,7 +43,11 @@ export async function embedTexts(texts: string[]): Promise<number[][]> {
 }
 
 export async function embedQuery(text: string): Promise<number[]> {
-  const { embedding } = await embed({ model: MODEL, value: text, providerOptions });
+  const { embedding } = await embed({
+    model: getEmbeddingModel(),
+    value: text,
+    providerOptions,
+  });
   return embedding;
 }
 
@@ -31,7 +57,11 @@ export function topKIndices(
   k: number,
 ): number[] {
   return vectors
-    .map((v, i) => ({ i, score: cosineSimilarity(query, v) }))
+    .map((v, i) => ({
+      i,
+      score: v.length === query.length ? cosineSimilarity(query, v) : -Infinity,
+    }))
+    .filter(({ score }) => Number.isFinite(score))
     .sort((a, b) => b.score - a.score)
     .slice(0, k)
     .map((x) => x.i);

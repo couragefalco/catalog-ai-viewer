@@ -32,12 +32,20 @@ export function CatalogBrowser({ catalogs }: { catalogs: Catalog[] }) {
   );
 
   const handleCite = (citation: Citation) => {
+    const targetCatalog = citation.catalogId
+      ? catalogs.find((c) => c.id === citation.catalogId)
+      : catalog;
     track("catalog_citation_clicked", {
-      catalog_id: catalog.id,
-      catalog_name: catalog.name,
+      catalog_id: targetCatalog?.id ?? catalog.id,
+      catalog_name: targetCatalog?.name ?? catalog.name,
       citation_id: citation.id,
       citation_page: citation.page,
+      citation_catalog_id: citation.catalogId,
+      citation_catalog_name: citation.catalogName,
     });
+    if (targetCatalog && targetCatalog.id !== catalog.id) {
+      setDocId(targetCatalog.id);
+    }
     setActiveCitation(citation);
     setPage(citation.page);
   };
@@ -87,6 +95,7 @@ export function CatalogBrowser({ catalogs }: { catalogs: Catalog[] }) {
             docId={catalog.id}
             onCite={handleCite}
             activeCitationId={activeCitation?.id ?? null}
+            enableGlobalChat={catalogs.length > 1}
           />
         </ResizablePanel>
       </ResizablePanelGroup>
