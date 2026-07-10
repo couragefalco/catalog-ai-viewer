@@ -7,7 +7,18 @@ import type { CatalogMeta } from "@/lib/catalog";
 import type { Catalog } from "@/components/catalog-viewer";
 import type { ShareLink } from "@/lib/share-links";
 
-const api = (path: string) => `${BASE_PATH}${path}`;
+const currentApiBase = () => {
+  if (
+    typeof window !== "undefined" &&
+    window.location.pathname.startsWith("/catalog")
+  ) {
+    return "/catalog";
+  }
+  return BASE_PATH;
+};
+
+const api = (path: string) =>
+  path.startsWith("/api") ? `${currentApiBase()}${path}` : `${BASE_PATH}${path}`;
 
 export function AdminLogin() {
   const [password, setPassword] = useState("");
