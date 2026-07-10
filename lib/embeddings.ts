@@ -25,9 +25,11 @@ function getEmbeddingModel() {
       resourceName: azureResourceName,
       baseURL: azureOpenAiEndpoint,
     });
+    console.log(`embeddings provider: azure (${azureEmbeddingDeployment})`);
     return azure.embedding(azureEmbeddingDeployment);
   }
 
+  console.log("embeddings provider: google (gemini-embedding-001)");
   return google.textEmbedding("gemini-embedding-001");
 }
 
