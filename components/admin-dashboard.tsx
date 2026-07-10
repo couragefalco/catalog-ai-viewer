@@ -161,7 +161,7 @@ export function AdminDashboard({
   };
 
   const shareUrl = (slug: string) =>
-    `${location.origin}${api(`/catalog/share/${slug}`)}`;
+    `${location.origin}${api(`/catalog/id/${slug}`)}`;
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
@@ -255,13 +255,13 @@ export function AdminDashboard({
               >
                 <div className="min-w-0">
                   <a
-                    href={api(`/catalog/share/${link.slug}`)}
+                    href={api(`/catalog/id/${link.slug}`)}
                     className="font-medium underline"
                   >
                     {link.name}
                   </a>
                   <p className="text-muted-foreground mt-0.5 text-xs">
-                    /catalog/share/{link.slug} · {catalog?.name ?? link.catalogId} ·{" "}
+                    /catalog/id/{link.slug} · {catalog?.name ?? link.catalogId} ·{" "}
                     {link.mode === "global" ? "Alle Kataloge" : "Dokument"}
                   </p>
                 </div>
