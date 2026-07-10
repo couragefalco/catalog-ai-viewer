@@ -78,7 +78,8 @@ export function CatalogDashboard({
 
   async function createShareLink(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const form = new FormData(e.currentTarget);
+    const formEl = e.currentTarget;
+    const form = new FormData(formEl);
     const slug = String(form.get("slug") ?? "");
     const name = String(form.get("name") ?? "");
     const catalogId = String(form.get("catalogId") ?? "");
@@ -101,7 +102,7 @@ export function CatalogDashboard({
         data.link,
         ...current.filter((link) => link.slug !== data.link.slug),
       ]);
-      e.currentTarget.reset();
+      formEl.reset();
     } catch (err) {
       alert((err as Error).message);
     } finally {
