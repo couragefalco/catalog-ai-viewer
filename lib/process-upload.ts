@@ -10,20 +10,26 @@ import { RAG_PAGE_THRESHOLD, embedTexts } from "@/lib/embeddings";
 import type { CatalogRecord } from "@/lib/catalog";
 
 // Vektoren runden, damit der gebündelte Summary-Blob klein bleibt.
-const roundVector = (v: number[]) => v.map((x) => Math.round(x * 1e5) / 1e5);
+export const roundVector = (v: number[]) =>
+  v.map((x) => Math.round(x * 1e5) / 1e5);
 
-export async function buildSummaryVector(
+export function summaryTextFor(
   record: Pick<CatalogRecord, "name" | "notes" | "category" | "chunks">,
-): Promise<number[] | null> {
+): string {
   const sample = record.chunks
     .slice(0, 20)
     .map((c) => c.text)
     .join(" ")
     .slice(0, 4000);
-  const text = [record.name, record.category, record.notes, sample]
+  return [record.name, record.category, record.notes, sample]
     .filter(Boolean)
     .join("\n");
-  const [vector] = await embedTexts([text]);
+}
+
+export async function buildSummaryVector(
+  record: Pick<CatalogRecord, "name" | "notes" | "category" | "chunks">,
+): Promise<number[] | null> {
+  const [vector] = await embedTexts([summaryTextFor(record)]);
   return vector ? roundVector(vector) : null;
 }
 

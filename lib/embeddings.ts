@@ -6,8 +6,13 @@ import { embed, embedMany, cosineSimilarity } from "ai";
 // kleinere Kataloge senden das gesamte PDF an Gemini.
 export const RAG_PAGE_THRESHOLD = 20;
 
-// 768 Dimensionen halten die gespeicherten Vektoren klein; cosineSimilarity normalisiert sowieso.
-const providerOptions = { google: { outputDimensionality: 768 } };
+// 768 Dimensionen halten die gespeicherten Vektoren klein; cosineSimilarity
+// normalisiert sowieso. Beide Provider unterstützen die Reduktion nativ
+// (Gemini: outputDimensionality, Azure/OpenAI text-embedding-3: dimensions).
+const providerOptions = {
+  google: { outputDimensionality: 768 },
+  openai: { dimensions: 768 },
+};
 
 function getEmbeddingModel() {
   const azureApiKey = process.env.AZURE_API_KEY;

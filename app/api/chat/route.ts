@@ -1,6 +1,5 @@
-import { createAzure } from "@ai-sdk/azure";
-import { google } from "@ai-sdk/google";
 import { streamText, type ModelMessage } from "ai";
+import { getChatModel } from "@/lib/chat-model";
 import { incrementQuestionCount } from "@/lib/account";
 import { getCatalog, getCatalogPdfBytes, getCatalogVectors } from "@/lib/store";
 import { embedQuery, topKIndices } from "@/lib/embeddings";
@@ -10,28 +9,6 @@ export const maxDuration = 60;
 export const runtime = "nodejs";
 
 type InMsg = { role: "user" | "assistant"; text: string };
-
-function getChatModel() {
-  const azureApiKey = process.env.AZURE_API_KEY;
-  const azureChatDeployment = process.env.AZURE_CHAT_DEPLOYMENT;
-  const azureResourceName = process.env.AZURE_RESOURCE_NAME;
-  const azureOpenAiEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
-  const hasAzure =
-    azureApiKey &&
-    azureChatDeployment &&
-    (azureResourceName || azureOpenAiEndpoint);
-
-  if (hasAzure) {
-    const azure = createAzure({
-      apiKey: azureApiKey,
-      resourceName: azureResourceName,
-      baseURL: azureOpenAiEndpoint,
-    });
-    return azure.chat(azureChatDeployment);
-  }
-
-  return google("gemini-2.5-flash");
-}
 
 function summarizeError(error: unknown) {
   if (error instanceof Error) return error.message.slice(0, 240);

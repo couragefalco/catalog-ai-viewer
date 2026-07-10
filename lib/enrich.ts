@@ -1,6 +1,6 @@
-import { google } from "@ai-sdk/google";
 import { generateObject } from "ai";
 import { z } from "zod";
+import { getChatModel } from "@/lib/chat-model";
 
 const schema = z.object({
   name: z.string(),
@@ -14,7 +14,7 @@ export async function enrichCatalog(input: {
 }): Promise<{ name: string; notes: string; exampleQuestions: string[] }> {
   try {
     const { object } = await generateObject({
-      model: google("gemini-2.5-flash"),
+      model: getChatModel(),
       schema,
       abortSignal: AbortSignal.timeout(20000),
       prompt: `Du erhältst Auszüge aus einem Produktkatalog/Whitepaper (Deutsch).
