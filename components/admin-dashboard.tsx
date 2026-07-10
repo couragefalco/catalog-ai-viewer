@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { upload } from "@vercel/blob/client";
-import { BASE_PATH } from "@/lib/base-path";
+import { ASSET_PATH, BASE_PATH } from "@/lib/base-path";
 import type { CatalogMeta } from "@/lib/catalog";
 import type { Catalog } from "@/components/catalog-viewer";
 import type { ShareLink } from "@/lib/share-links";
@@ -37,7 +37,7 @@ export function AdminLogin() {
 
   return (
     <main className="mx-auto max-w-sm px-6 py-24">
-      <img src={`${BASE_PATH}/igus-logo.svg`} alt="igus" className="mb-4 h-5 w-auto" />
+      <img src={`${ASSET_PATH}/igus-logo.svg`} alt="igus" className="mb-4 h-5 w-auto" />
       <h1 className="text-xl font-semibold">Admin-Anmeldung</h1>
       <form onSubmit={submit} className="mt-6 space-y-3">
         <input
@@ -176,7 +176,7 @@ export function AdminDashboard({
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
-      <img src={`${BASE_PATH}/igus-logo.svg`} alt="igus" className="mb-4 h-5 w-auto" />
+      <img src={`${ASSET_PATH}/igus-logo.svg`} alt="igus" className="mb-4 h-5 w-auto" />
       <h1 className="text-2xl font-semibold">Kataloge verwalten</h1>
 
       <form onSubmit={doUpload} className="mt-6 rounded-md border p-4">
