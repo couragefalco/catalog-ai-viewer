@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { ChatPanel } from "@/components/chat-panel";
 import { track } from "@/lib/analytics";
@@ -21,15 +21,37 @@ const CatalogViewer = dynamic(
 // Multi-catalog browse view: the viewer with its collapsible catalog sidebar
 // for switching between catalogs, plus the chat panel. Selecting a catalog in
 // the sidebar swaps the document in place (no navigation).
-export function CatalogBrowser({ catalogs }: { catalogs: Catalog[] }) {
-  const [docId, setDocId] = useState(catalogs[0]?.id ?? "");
+export function CatalogBrowser({
+  catalogs,
+  initialCatalogId,
+  initialChatScope = "document",
+  shareSlug,
+}: {
+  catalogs: Catalog[];
+  initialCatalogId?: string;
+  initialChatScope?: "document" | "global";
+  shareSlug?: string;
+}) {
+  const [docId, setDocId] = useState(initialCatalogId ?? catalogs[0]?.id ?? "");
   const [page, setPage] = useState(1);
   const [activeCitation, setActiveCitation] = useState<Citation | null>(null);
+  const trackedShareOpen = useRef(false);
 
   const catalog = useMemo(
     () => catalogs.find((c) => c.id === docId) ?? catalogs[0],
     [catalogs, docId],
   );
+
+  useEffect(() => {
+    if (!shareSlug || !catalog || trackedShareOpen.current) return;
+    trackedShareOpen.current = true;
+    track("catalog_share_link_opened", {
+      share_slug: shareSlug,
+      catalog_id: catalog.id,
+      catalog_name: catalog.name,
+      initial_chat_scope: initialChatScope,
+    });
+  }, [catalog, initialChatScope, shareSlug]);
 
   const handleCite = (citation: Citation) => {
     const targetCatalog = citation.catalogId
@@ -96,6 +118,8 @@ export function CatalogBrowser({ catalogs }: { catalogs: Catalog[] }) {
             onCite={handleCite}
             activeCitationId={activeCitation?.id ?? null}
             enableGlobalChat={catalogs.length > 1}
+            initialScope={initialChatScope}
+            shareSlug={shareSlug}
           />
         </ResizablePanel>
       </ResizablePanelGroup>

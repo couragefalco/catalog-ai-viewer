@@ -52,6 +52,8 @@ type ChatPanelProps = {
   onCite: (citation: Citation) => void;
   activeCitationId: string | null;
   enableGlobalChat?: boolean;
+  initialScope?: ChatScope;
+  shareSlug?: string;
 };
 
 type ChatScope = "document" | "global";
@@ -61,11 +63,13 @@ export function ChatPanel({
   onCite,
   activeCitationId,
   enableGlobalChat = false,
+  initialScope = "document",
+  shareSlug,
 }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [scope, setScope] = useState<ChatScope>("document");
+  const [scope, setScope] = useState<ChatScope>(initialScope);
   const counter = useRef(0);
   const previousDocId = useRef(docId);
   const previousScope = useRef<ChatScope>("document");
@@ -102,6 +106,7 @@ export function ChatPanel({
     track("catalog_question_asked", {
       catalog_id: docId,
       chat_scope: activeScope,
+      share_slug: shareSlug,
       question_text: value,
       question_length: value.length,
       conversation_messages: messages.length,
@@ -168,6 +173,7 @@ export function ChatPanel({
       track("catalog_answer_received", {
         catalog_id: docId,
         chat_scope: activeScope,
+        share_slug: shareSlug,
         answer_length: finalText.length,
         citation_count: citations.length,
       });

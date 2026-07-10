@@ -4,6 +4,8 @@ import { useState } from "react";
 import { upload } from "@vercel/blob/client";
 import { BASE_PATH } from "@/lib/base-path";
 import type { CatalogMeta } from "@/lib/catalog";
+import type { Catalog } from "@/components/catalog-viewer";
+import type { ShareLink } from "@/lib/share-links";
 
 const api = (path: string) => `${BASE_PATH}${path}`;
 
@@ -43,9 +45,19 @@ export function AdminLogin() {
   );
 }
 
-export function AdminDashboard({ catalogs }: { catalogs: CatalogMeta[] }) {
+export function AdminDashboard({
+  catalogs,
+  allCatalogs,
+  shareLinks,
+}: {
+  catalogs: CatalogMeta[];
+  allCatalogs: Catalog[];
+  shareLinks: ShareLink[];
+}) {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string>("");
+  const [links, setLinks] = useState(shareLinks);
+  const [shareBusy, setShareBusy] = useState(false);
 
   const doUpload = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -103,6 +115,54 @@ export function AdminDashboard({ catalogs }: { catalogs: CatalogMeta[] }) {
     window.location.reload();
   };
 
+  const createShareLink = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    const slug = String(form.get("slug") ?? "");
+    const name = String(form.get("name") ?? "");
+    const catalogId = String(form.get("catalogId") ?? "");
+    const mode = String(form.get("mode") ?? "document");
+    setShareBusy(true);
+    try {
+      const res = await fetch(api("/api/admin/share-links"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug,
+          name,
+          catalogId,
+          mode: mode === "global" ? "global" : "document",
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Share-Link fehlgeschlagen.");
+      setLinks((current) => [
+        data.link,
+        ...current.filter((link) => link.slug !== data.link.slug),
+      ]);
+      e.currentTarget.reset();
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
+  const deleteShareLink = async (slug: string) => {
+    if (!confirm("Diesen Share-Link löschen?")) return;
+    const res = await fetch(api(`/api/admin/share-links/${slug}`), {
+      method: "DELETE",
+    });
+    if (!res.ok) {
+      alert("Löschen fehlgeschlagen.");
+      return;
+    }
+    setLinks((current) => current.filter((link) => link.slug !== slug));
+  };
+
+  const shareUrl = (slug: string) =>
+    `${location.origin}${api(`/catalog/share/${slug}`)}`;
+
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
       <img src={`${BASE_PATH}/igus-logo.svg`} alt="igus" className="mb-4 h-5 w-auto" />
@@ -123,6 +183,114 @@ export function AdminDashboard({ catalogs }: { catalogs: CatalogMeta[] }) {
           Große PDFs (auch hunderte Seiten) werden jetzt unterstützt.
         </p>
       </form>
+
+      <section className="mt-8 rounded-md border p-4">
+        <h2 className="text-lg font-semibold">Share-Links</h2>
+        <p className="text-muted-foreground mt-1 text-sm">
+          Links fuer Kunden erstellen, die direkt in einen Katalog oder in die
+          globale Katalogsuche starten.
+        </p>
+
+        <form onSubmit={createShareLink} className="mt-4 grid gap-3 md:grid-cols-2">
+          <label className="space-y-1 text-sm">
+            <span className="text-muted-foreground text-xs">Name</span>
+            <input
+              name="name"
+              placeholder="Kunde oder Kampagne"
+              className="w-full rounded-md border px-3 py-2"
+            />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="text-muted-foreground text-xs">Slug</span>
+            <input
+              name="slug"
+              required
+              placeholder="kunde-prt-demo"
+              className="w-full rounded-md border px-3 py-2"
+            />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="text-muted-foreground text-xs">Startkatalog</span>
+            <select
+              name="catalogId"
+              required
+              className="w-full rounded-md border bg-background px-3 py-2"
+              defaultValue={allCatalogs[0]?.id}
+            >
+              {allCatalogs.map((catalog) => (
+                <option key={catalog.id} value={catalog.id}>
+                  {catalog.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="text-muted-foreground text-xs">Startmodus</span>
+            <select
+              name="mode"
+              className="w-full rounded-md border bg-background px-3 py-2"
+              defaultValue="document"
+            >
+              <option value="document">Dokument</option>
+              <option value="global">Alle Kataloge</option>
+            </select>
+          </label>
+          <div className="md:col-span-2">
+            <button
+              disabled={shareBusy || allCatalogs.length === 0}
+              className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-50"
+            >
+              {shareBusy ? "Speichere..." : "Share-Link erstellen"}
+            </button>
+          </div>
+        </form>
+
+        <div className="mt-5 space-y-2">
+          {links.map((link) => {
+            const catalog = allCatalogs.find((c) => c.id === link.catalogId);
+            return (
+              <article
+                key={link.slug}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <a
+                    href={api(`/catalog/share/${link.slug}`)}
+                    className="font-medium underline"
+                  >
+                    {link.name}
+                  </a>
+                  <p className="text-muted-foreground mt-0.5 text-xs">
+                    /catalog/share/{link.slug} · {catalog?.name ?? link.catalogId} ·{" "}
+                    {link.mode === "global" ? "Alle Kataloge" : "Dokument"}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard.writeText(shareUrl(link.slug))}
+                    className="rounded-md border px-2 py-1 text-xs"
+                  >
+                    Link kopieren
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteShareLink(link.slug)}
+                    className="rounded-md border px-2 py-1 text-xs text-red-600"
+                  >
+                    Löschen
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+          {links.length === 0 && (
+            <p className="text-muted-foreground text-sm">
+              Noch keine Share-Links erstellt.
+            </p>
+          )}
+        </div>
+      </section>
 
       <ul className="mt-8 space-y-4">
         {catalogs.map((c) => (
