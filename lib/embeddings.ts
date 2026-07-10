@@ -31,15 +31,24 @@ function getEmbeddingModel() {
   return google.textEmbedding("gemini-embedding-001");
 }
 
+// Gemini erlaubt maximal 100 Texte pro Batch-Request; das SDK teilt nicht
+// selbst auf, also hier manuell stückeln.
+const MAX_EMBED_BATCH = 100;
+
 export async function embedTexts(texts: string[]): Promise<number[][]> {
   if (texts.length === 0) return [];
-  const { embeddings } = await embedMany({
-    model: getEmbeddingModel(),
-    values: texts,
-    providerOptions,
-    maxParallelCalls: 2,
-  });
-  return embeddings;
+  const model = getEmbeddingModel();
+  const out: number[][] = [];
+  for (let i = 0; i < texts.length; i += MAX_EMBED_BATCH) {
+    const { embeddings } = await embedMany({
+      model,
+      values: texts.slice(i, i + MAX_EMBED_BATCH),
+      providerOptions,
+      maxParallelCalls: 2,
+    });
+    out.push(...embeddings);
+  }
+  return out;
 }
 
 export async function embedQuery(text: string): Promise<number[]> {
