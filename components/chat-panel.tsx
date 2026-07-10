@@ -32,12 +32,21 @@ import { ASSET_PATH } from "@/lib/base-path";
 import type { Citation } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const SUGGESTIONS = [
+const DOCUMENT_SUGGESTIONS = [
   "Worum geht es in diesem Dokument?",
   "Welche technischen Daten sind angegeben?",
   "Welche Vorteile werden genannt?",
   "Für welche Anwendungen ist das gedacht?",
   "Welche Maße oder Lasten werden genannt?",
+];
+
+// Katalogübergreifende Vorschläge für den "Alle"-Modus.
+const GLOBAL_SUGGESTIONS = [
+  "Welches Gleitlager eignet sich für hohe Lasten?",
+  "Was ist der Unterschied zwischen iglidur® und igubal®?",
+  "Welche Produkte eignen sich für den Lebensmittelbereich?",
+  "Welche Linearführungen gibt es für kleine Bauräume?",
+  "Welche Lösungen sind unterwassertauglich?",
 ];
 
 type ChatMessage = {
@@ -293,7 +302,10 @@ export function ChatPanel({
       {/* Suggestions */}
       <div className="px-3 pb-2">
         <Suggestions className="w-full flex-wrap items-start gap-2 whitespace-normal">
-          {SUGGESTIONS.map((s) => (
+          {(activeScope === "global"
+            ? GLOBAL_SUGGESTIONS
+            : DOCUMENT_SUGGESTIONS
+          ).map((s) => (
             <Suggestion key={s} suggestion={s} onClick={send} />
           ))}
         </Suggestions>
