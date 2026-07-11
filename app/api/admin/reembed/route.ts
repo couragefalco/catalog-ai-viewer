@@ -30,6 +30,11 @@ export async function POST(req: Request) {
     200,
     Math.max(1, Number(searchParams.get("limit") ?? "60") || 60),
   );
+  // mode=collect: Vektoren in der Antwort zurückgeben statt den gemeinsamen
+  // Summary-Blob pro Scheibe zu überschreiben. Blob-Reads nach Overwrites
+  // können bis zu ~60s stale sein; Read-Modify-Write über viele Scheiben
+  // verliert dadurch Einträge. Der Aufrufer aggregiert und schreibt einmal.
+  const collect = searchParams.get("mode") === "collect";
 
   const metas = await listCatalogs();
   const slice = metas.slice(offset, offset + limit);
@@ -48,11 +53,15 @@ export async function POST(req: Request) {
   }
 
   const vectors = await embedTexts(summaries.map((s) => s.text));
-  const existing = (await getSummaryVectors()) ?? {};
+  const byId: Record<string, number[]> = {};
   summaries.forEach((s, i) => {
-    if (vectors[i]) existing[s.id] = roundVector(vectors[i]);
+    if (vectors[i]) byId[s.id] = roundVector(vectors[i]);
   });
-  await saveSummaryVectors(existing);
+
+  if (!collect) {
+    const existing = (await getSummaryVectors()) ?? {};
+    await saveSummaryVectors({ ...existing, ...byId });
+  }
 
   const nextOffset =
     offset + slice.length < metas.length ? offset + slice.length : null;
@@ -63,5 +72,6 @@ export async function POST(req: Request) {
     ragReembedded,
     vectorDims: vectors[0]?.length ?? null,
     nextOffset,
+    ...(collect ? { vectors: byId } : {}),
   });
 }
