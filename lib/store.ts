@@ -1,6 +1,7 @@
 import { put, get, list, del } from "@vercel/blob";
 import type { CatalogMeta, CatalogRecord } from "./catalog";
 import type { SearchIndex } from "./search-index";
+import type { PageIndexBlob } from "./page-index";
 
 const PREFIX = "catalogs/";
 // Der Index lebt bewusst AUSSERHALB von "catalogs/", damit ältere Deployments
@@ -8,6 +9,7 @@ const PREFIX = "catalogs/";
 const INDEX_KEY = "catalog-index/index.json";
 const SUMMARY_VEC_KEY = "catalog-index/summary-vectors.json";
 const SEARCH_INDEX_KEY = "catalog-index/search-index.json";
+const PAGE_INDEX_KEY = "catalog-index/page-index.json";
 const jsonKey = (id: string) => `${PREFIX}${id}.json`;
 const pdfKey = (id: string) => `${PREFIX}${id}.pdf`;
 const vecKey = (id: string) => `${PREFIX}${id}.vec.json`;
@@ -197,6 +199,16 @@ export async function saveSearchIndex(index: SearchIndex): Promise<void> {
   await writeJsonBlob(SEARCH_INDEX_KEY, index);
 }
 
+// --- Seiten-Index (semantische Vorauswahl) --------------------------------
+
+export async function getPageIndexBlob(): Promise<PageIndexBlob | null> {
+  return readJsonBlob<PageIndexBlob>(PAGE_INDEX_KEY);
+}
+
+export async function savePageIndexBlob(blob: PageIndexBlob): Promise<void> {
+  await writeJsonBlob(PAGE_INDEX_KEY, blob);
+}
+
 // --- Warmer Cache für die pro-Anfrage gelesenen Index-Blobs ---------------
 // Der globale Chat liest Index, Summary-Vektoren und Suchindex bei JEDER Frage.
 // Auf einer warmen Fluid-Compute-Instanz spart der Cache die Blob-Roundtrips.
@@ -205,9 +217,13 @@ const TTL_MS = 60_000;
 type Cached<T> = { value: T; at: number };
 const caches = new Map<string, Cached<unknown>>();
 
-async function cached<T>(key: string, load: () => Promise<T>): Promise<T> {
+async function cached<T>(
+  key: string,
+  load: () => Promise<T>,
+  ttl = TTL_MS,
+): Promise<T> {
   const hit = caches.get(key) as Cached<T> | undefined;
-  if (hit && Date.now() - hit.at < TTL_MS) return hit.value;
+  if (hit && Date.now() - hit.at < ttl) return hit.value;
   const value = await load();
   caches.set(key, { value, at: Date.now() });
   return value;
@@ -223,6 +239,12 @@ export function getSummaryVectorsCached(): Promise<SummaryVectors | null> {
 
 export function getSearchIndexCached(): Promise<SearchIndex | null> {
   return cached("search", getSearchIndex);
+}
+
+// Der Seiten-Index wird pro Anfrage gebraucht und ist mehrere MB gross -
+// länger cachen, er ändert sich nur bei Uploads.
+export function getPageIndexCached(): Promise<PageIndexBlob | null> {
+  return cached("pages", getPageIndexBlob, 10 * 60_000);
 }
 
 export async function saveCatalogVectors(

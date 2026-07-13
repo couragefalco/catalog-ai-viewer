@@ -45,8 +45,19 @@ export function buildSearchIndex(
   return { ids, postings };
 }
 
-// IDF-gewichtete Übereinstimmung: seltene Begriffe (z. B. "igumid") zählen weit
-// mehr als häufige. Ergebnis ist pro Katalog auf 0..1 normiert.
+// Obergrenze für die IDF-Gewichtung.
+//
+// Der Bestand ist überwiegend englisch: "temperatur" steht in 11 Katalogen,
+// "temperature" in 232. Ungedeckelt gilt das deutsche Wort damit als 3x so
+// aussagekräftig wie der Produktname "igumid" (64 Kataloge) - und ein paar
+// deutsche Kataloge, die das Wort zufällig enthalten, verdrängen genau das
+// Dokument, das den gesuchten Werkstoff beschreibt. Selten-weil-fremdsprachig
+// ist eben nicht selten-weil-trennscharf. Der Deckel nimmt solchen Begriffen
+// den Ausreißer-Bonus; die sprachübergreifende Bedeutung liefert der Vektor.
+const MAX_IDF = 3.0;
+
+// IDF-gewichtete Übereinstimmung: seltene Begriffe (z. B. "igumid") zählen mehr
+// als häufige. Ergebnis ist pro Katalog auf 0..1 normiert.
 export function lexicalScores(
   query: string,
   index: SearchIndex,
@@ -61,7 +72,7 @@ export function lexicalScores(
     const docs = index.postings[term];
     if (!docs?.length) continue;
     // Begriffe, die in fast jedem Katalog vorkommen, tragen kaum Information.
-    const idf = Math.log(total / docs.length);
+    const idf = Math.min(Math.log(total / docs.length), MAX_IDF);
     if (idf <= 0) continue;
     maxPossible += idf;
     for (const doc of docs) {

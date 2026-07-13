@@ -1,10 +1,12 @@
 import { cosineSimilarity, streamText, type ModelMessage } from "ai";
 import { getChatModel } from "@/lib/chat-model";
 import { embedQuery } from "@/lib/embeddings";
+import { decodePageIndex, searchPages, truncate } from "@/lib/page-index";
 import { lexicalScores } from "@/lib/search-index";
 import {
   getCatalog,
   getCatalogVectors,
+  getPageIndexCached,
   getSearchIndexCached,
   getSummaryVectorsCached,
   listCatalogsCached,
@@ -50,13 +52,15 @@ function lexicalScore(question: string, catalogName: string, text: string) {
 }
 
 // Zweistufige Suche über >1000 Kataloge:
-// 1) Katalogebene: Summary-Vektor (semantisch) UND Volltext-Keyword-Index
-//    (exakte Fachbegriffe wie "igumid"). Beide Ranglisten werden vereinigt,
-//    damit ein starker Begriffstreffer nicht von der Semantik verdrängt wird.
-// 2) Chunk-Ebene: nur in den gewählten Katalogen, mit echten Chunk-Vektoren.
-const VECTOR_CATALOGS = 14; // Plätze für die semantische Rangliste
-const LEXICAL_CATALOGS = 10; // Plätze für die Begriffs-Rangliste
+// 1) Vorauswahl auf SEITEN-Ebene (nicht Katalog-Ebene: ein Katalogvektor
+//    verwässert, die eine relevante Passage geht im Mittel unter) plus ein
+//    Keyword-Index für exakte Produktnamen. Beide Ranglisten werden vereinigt.
+// 2) Chunk-Ebene: nur in den gewählten Katalogen, mit den vollen Chunk-Vektoren.
+const PAGE_HITS = 60; // Seiten aus der semantischen Vorauswahl
+const SEMANTIC_CATALOGS = 16; // daraus abgeleitete Kataloge
+const LEXICAL_CATALOGS = 8; // Plätze für die Begriffs-Rangliste
 const MAX_CHUNKS = 24;
+const MAX_CHUNKS_PER_CATALOG = 6;
 
 const topN = <T>(items: T[], score: (item: T) => number, n: number): T[] =>
   items
@@ -71,37 +75,51 @@ async function selectCatalogs(
   metas: CatalogMeta[],
   queryVector: number[] | null,
 ): Promise<CatalogMeta[]> {
-  if (metas.length <= VECTOR_CATALOGS + LEXICAL_CATALOGS) return metas;
+  if (metas.length <= SEMANTIC_CATALOGS + LEXICAL_CATALOGS) return metas;
+  const byId = new Map(metas.map((m) => [m.id, m]));
 
-  const [summaries, searchIndex] = await Promise.all([
-    queryVector ? getSummaryVectorsCached().catch(() => null) : null,
+  const [pageBlob, searchIndex] = await Promise.all([
+    queryVector ? getPageIndexCached().catch(() => null) : null,
     getSearchIndexCached().catch(() => null),
   ]);
 
-  const bySemantics = queryVector
-    ? topN(
-        metas,
-        (meta) => {
-          const summary = summaries?.[meta.id];
-          return summary && summary.length === queryVector.length
-            ? cosineSimilarity(queryVector, summary)
-            : -Infinity;
-        },
-        VECTOR_CATALOGS,
-      )
-    : [];
+  // Semantisch: beste Seiten -> deren Kataloge (Reihenfolge = Seiten-Rang).
+  let bySemantics: CatalogMeta[] = [];
+  if (queryVector && pageBlob) {
+    const index = decodePageIndex(pageBlob);
+    const hits = searchPages(truncate(queryVector, index.dims), index, PAGE_HITS);
+    const seen = new Set<string>();
+    for (const { entry } of hits) {
+      if (seen.has(entry.c)) continue;
+      seen.add(entry.c);
+      const meta = byId.get(entry.c);
+      if (meta) bySemantics.push(meta);
+      if (bySemantics.length >= SEMANTIC_CATALOGS) break;
+    }
+  } else if (queryVector) {
+    // Fallback ohne Seiten-Index: alte Katalog-Vektoren.
+    const summaries = await getSummaryVectorsCached().catch(() => null);
+    bySemantics = topN(
+      metas,
+      (meta) => {
+        const summary = summaries?.[meta.id];
+        return summary && summary.length === queryVector.length
+          ? cosineSimilarity(queryVector, summary)
+          : -Infinity;
+      },
+      SEMANTIC_CATALOGS,
+    );
+  }
 
   let byKeywords: CatalogMeta[] = [];
   if (searchIndex) {
     const scores = lexicalScores(question, searchIndex);
-    const byId = new Map(metas.map((m) => [m.id, m]));
     byKeywords = [...scores.entries()]
       .sort((a, b) => b[1] - a[1])
       .slice(0, LEXICAL_CATALOGS)
       .map(([docIndex]) => byId.get(searchIndex.ids[docIndex]))
       .filter((m): m is CatalogMeta => Boolean(m));
   } else {
-    // Fallback ohne Suchindex: grober Match auf Name/Notizen.
     byKeywords = topN(
       metas,
       (meta) =>
@@ -116,7 +134,7 @@ async function selectCatalogs(
 
   const selected = new Map<string, CatalogMeta>();
   for (const meta of [...bySemantics, ...byKeywords]) selected.set(meta.id, meta);
-  return selected.size ? [...selected.values()] : metas.slice(0, VECTOR_CATALOGS);
+  return selected.size ? [...selected.values()] : metas.slice(0, SEMANTIC_CATALOGS);
 }
 
 async function getCandidates(question: string): Promise<Candidate[]> {
@@ -173,7 +191,7 @@ async function getCandidates(question: string): Promise<Candidate[]> {
       const perCatalog = kept.filter(
         (c) => c.catalogId === candidate.catalogId,
       ).length;
-      if (perCatalog >= 6) return kept;
+      if (perCatalog >= MAX_CHUNKS_PER_CATALOG) return kept;
       kept.push(candidate);
       return kept;
     }, []);
