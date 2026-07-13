@@ -30,6 +30,16 @@ const SEMANTIC_CATALOGS = 18; // Kataloge aus der semantischen Vorauswahl
 const LEXICAL_CATALOGS = 8; // Kataloge aus der Begriffs-Rangliste
 export const MAX_CHUNKS = 24;
 export const MAX_CHUNKS_PER_CATALOG = 6;
+// Ein Treffer bringt den Rest SEINER SEITE mit.
+//
+// Der Materialkatalog listet die igumid®-Sorten als eigene Absätze. Die Suche
+// trifft zuverlässig einen davon - aber der Absatz zum Basiswerkstoff
+// igumid® G LW ("Dauertemperaturen von -40 °C bis deutlich über 100 °C") stand
+// daneben und fiel unter den Deckel je Katalog. Die Seite ist die Einheit, in
+// der solche Kataloge geschrieben sind; wer einen Absatz trifft, braucht meist
+// die Nachbarn dazu.
+const PAGE_EXPANSION_SEEDS = 4; // beste Fundstellen, deren Seite ergänzt wird
+export const MAX_CHUNKS_WITH_CONTEXT = 34;
 
 export type Candidate = {
   id: string;
@@ -238,6 +248,26 @@ export function selectChunks(
   for (const candidate of [...scored].sort((a, b) => b.score - a.score)) {
     tryTake(candidate);
   }
+
+  // Seiten-Kontext: die besten Fundstellen um ihre Seiten-Nachbarn ergänzen.
+  const seeds = [...chosen]
+    .sort((a, b) => b.score - a.score)
+    .slice(0, PAGE_EXPANSION_SEEDS);
+  for (const seed of seeds) {
+    for (const sibling of scored) {
+      if (chosen.length >= MAX_CHUNKS_WITH_CONTEXT) break;
+      if (taken.has(sibling.id)) continue;
+      if (
+        sibling.catalogId !== seed.catalogId ||
+        sibling.chunk.page !== seed.chunk.page
+      ) {
+        continue;
+      }
+      taken.add(sibling.id);
+      chosen.push(sibling);
+    }
+  }
+
   return chosen;
 }
 
