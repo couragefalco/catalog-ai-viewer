@@ -1,7 +1,8 @@
 import { cosineSimilarity, streamText, type ModelMessage } from "ai";
 import { getChatModel } from "@/lib/chat-model";
-import { embedQuery } from "@/lib/embeddings";
+import { embedTexts } from "@/lib/embeddings";
 import { decodePageIndex, searchPages, truncate } from "@/lib/page-index";
+import { planQueries } from "@/lib/query-plan";
 import { lexicalScores } from "@/lib/search-index";
 import {
   getCatalog,
@@ -24,7 +25,8 @@ type Candidate = {
   catalogId: string;
   catalogName: string;
   chunk: Chunk;
-  score: number;
+  score: number; // bester Score über alle Teilfragen
+  perQuery: number[]; // Score je Teilfrage, für die Kontingente
 };
 
 function createPlainTextProtocolResponse(text: string) {
@@ -59,8 +61,8 @@ function lexicalScore(question: string, catalogName: string, text: string) {
 const PAGE_HITS = 60; // Seiten aus der semantischen Vorauswahl
 const SEMANTIC_CATALOGS = 16; // daraus abgeleitete Kataloge
 const LEXICAL_CATALOGS = 8; // Plätze für die Begriffs-Rangliste
-const MAX_CHUNKS = 24;
-const MAX_CHUNKS_PER_CATALOG = 6;
+export const MAX_CHUNKS = 24;
+export const MAX_CHUNKS_PER_CATALOG = 6;
 
 const topN = <T>(items: T[], score: (item: T) => number, n: number): T[] =>
   items
@@ -70,131 +72,189 @@ const topN = <T>(items: T[], score: (item: T) => number, n: number): T[] =>
     .slice(0, n)
     .map(({ item }) => item);
 
+// Teilfragen bekommen je eigene Plätze in der Vorauswahl, damit die zweite
+// Teilfrage nicht komplett von der ersten verdrängt wird.
 async function selectCatalogs(
-  question: string,
+  queries: string[],
+  queryVectors: number[][],
   metas: CatalogMeta[],
-  queryVector: number[] | null,
 ): Promise<CatalogMeta[]> {
   if (metas.length <= SEMANTIC_CATALOGS + LEXICAL_CATALOGS) return metas;
   const byId = new Map(metas.map((m) => [m.id, m]));
 
   const [pageBlob, searchIndex] = await Promise.all([
-    queryVector ? getPageIndexCached().catch(() => null) : null,
+    queryVectors.length ? getPageIndexCached().catch(() => null) : null,
     getSearchIndexCached().catch(() => null),
   ]);
 
-  // Semantisch: beste Seiten -> deren Kataloge (Reihenfolge = Seiten-Rang).
-  let bySemantics: CatalogMeta[] = [];
-  if (queryVector && pageBlob) {
-    const index = decodePageIndex(pageBlob);
-    const hits = searchPages(truncate(queryVector, index.dims), index, PAGE_HITS);
-    const seen = new Set<string>();
-    for (const { entry } of hits) {
-      if (seen.has(entry.c)) continue;
-      seen.add(entry.c);
-      const meta = byId.get(entry.c);
-      if (meta) bySemantics.push(meta);
-      if (bySemantics.length >= SEMANTIC_CATALOGS) break;
-    }
-  } else if (queryVector) {
-    // Fallback ohne Seiten-Index: alte Katalog-Vektoren.
-    const summaries = await getSummaryVectorsCached().catch(() => null);
-    bySemantics = topN(
-      metas,
-      (meta) => {
-        const summary = summaries?.[meta.id];
-        return summary && summary.length === queryVector.length
-          ? cosineSimilarity(queryVector, summary)
-          : -Infinity;
-      },
-      SEMANTIC_CATALOGS,
-    );
-  }
-
-  let byKeywords: CatalogMeta[] = [];
-  if (searchIndex) {
-    const scores = lexicalScores(question, searchIndex);
-    byKeywords = [...scores.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, LEXICAL_CATALOGS)
-      .map(([docIndex]) => byId.get(searchIndex.ids[docIndex]))
-      .filter((m): m is CatalogMeta => Boolean(m));
-  } else {
-    byKeywords = topN(
-      metas,
-      (meta) =>
-        lexicalScore(
-          question,
-          meta.name,
-          `${meta.category ?? ""} ${meta.quickId ?? ""} ${meta.series ?? ""} ${meta.notes}`,
-        ),
-      LEXICAL_CATALOGS,
-    );
-  }
+  const perQuerySemantic = Math.max(
+    4,
+    Math.ceil(SEMANTIC_CATALOGS / Math.max(1, queryVectors.length)),
+  );
+  const perQueryLexical = Math.max(
+    3,
+    Math.ceil(LEXICAL_CATALOGS / Math.max(1, queries.length)),
+  );
 
   const selected = new Map<string, CatalogMeta>();
-  for (const meta of [...bySemantics, ...byKeywords]) selected.set(meta.id, meta);
+
+  // Semantisch: beste SEITEN je Teilfrage -> deren Kataloge.
+  const index = pageBlob ? decodePageIndex(pageBlob) : null;
+  const summaries =
+    !index && queryVectors.length
+      ? await getSummaryVectorsCached().catch(() => null)
+      : null;
+
+  for (const queryVector of queryVectors) {
+    let taken = 0;
+    if (index) {
+      const hits = searchPages(
+        truncate(queryVector, index.dims),
+        index,
+        PAGE_HITS,
+      );
+      for (const { entry } of hits) {
+        if (taken >= perQuerySemantic) break;
+        if (selected.has(entry.c)) continue;
+        const meta = byId.get(entry.c);
+        if (!meta) continue;
+        selected.set(meta.id, meta);
+        taken++;
+      }
+    } else if (summaries) {
+      // Fallback ohne Seiten-Index: alte Katalog-Vektoren.
+      for (const meta of topN(
+        metas,
+        (m) => {
+          const summary = summaries[m.id];
+          return summary && summary.length === queryVector.length
+            ? cosineSimilarity(queryVector, summary)
+            : -Infinity;
+        },
+        perQuerySemantic,
+      )) {
+        selected.set(meta.id, meta);
+      }
+    }
+  }
+
+  // Begriffe: exakte Produkt-/Werkstoffnamen je Teilfrage.
+  for (const query of queries) {
+    const candidates: CatalogMeta[] = searchIndex
+      ? [...lexicalScores(query, searchIndex).entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, perQueryLexical)
+          .map(([docIndex]) => byId.get(searchIndex.ids[docIndex]))
+          .filter((m): m is CatalogMeta => Boolean(m))
+      : topN(
+          metas,
+          (meta) =>
+            lexicalScore(
+              query,
+              meta.name,
+              `${meta.category ?? ""} ${meta.quickId ?? ""} ${meta.series ?? ""} ${meta.notes}`,
+            ),
+          perQueryLexical,
+        );
+    for (const meta of candidates) selected.set(meta.id, meta);
+  }
+
   return selected.size ? [...selected.values()] : metas.slice(0, SEMANTIC_CATALOGS);
 }
 
 async function getCandidates(question: string): Promise<Candidate[]> {
-  const [allMetas, queryVector] = await Promise.all([
+  // Mehrteilige Fragen zerlegen und je Teilfrage suchen - ein gemittelter
+  // Vektor über zwei Themen trifft sonst keines von beiden.
+  const queries = await planQueries(question);
+  const [allMetas, queryVectors] = await Promise.all([
     listCatalogsCached(),
-    embedQuery(question).catch(() => null),
+    embedTexts(queries).catch(() => [] as number[][]),
   ]);
-  const metas = await selectCatalogs(question, allMetas, queryVector);
+  const metas = await selectCatalogs(queries, queryVectors, allMetas);
   const records = await Promise.all(
     metas.map(async (meta, catalogIndex) => {
       const [record, vectors] = await Promise.all([
         getCatalog(meta.id),
-        queryVector ? getCatalogVectors(meta.id).catch(() => null) : null,
+        queryVectors.length ? getCatalogVectors(meta.id).catch(() => null) : null,
       ]);
       return { record, vectors, catalogIndex };
     }),
   );
 
-  return records
+  const scored = records
     .filter((entry): entry is NonNullable<typeof entry> & {
       record: NonNullable<typeof entry.record>;
     } => Boolean(entry.record))
     .flatMap(({ record, vectors, catalogIndex }) => {
+      const dims = queryVectors[0]?.length;
       const vectorUsable =
-        queryVector &&
-        vectors &&
-        vectors.length === record.chunks.length &&
-        vectors[0]?.length === queryVector.length;
+        vectors && vectors.length === record.chunks.length &&
+        vectors[0]?.length === dims;
 
       return record.chunks.map((chunk, chunkIndex) => {
-        const vectorScore = vectorUsable
-          ? cosineSimilarity(queryVector, vectors[chunkIndex])
-          : -Infinity;
-        const textScore = lexicalScore(question, record.name, chunk.text);
-        const score = Number.isFinite(vectorScore)
-          ? vectorScore + textScore * 0.05
-          : textScore;
+        // Pro Teilfrage einen eigenen Score behalten, statt sie zu mitteln.
+        const perQuery = queries.map((query, q) => {
+          const vectorScore = vectorUsable
+            ? cosineSimilarity(queryVectors[q], vectors[chunkIndex])
+            : -Infinity;
+          const textScore = lexicalScore(query, record.name, chunk.text);
+          return Number.isFinite(vectorScore)
+            ? vectorScore + textScore * 0.05
+            : textScore;
+        });
 
         return {
           id: `c${catalogIndex}-${chunk.id}`,
           catalogId: record.id,
           catalogName: record.name,
           chunk,
-          score,
+          score: Math.max(...perQuery),
+          perQuery,
         };
       });
     })
-    .filter((candidate) => candidate.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .reduce<Candidate[]>((kept, candidate) => {
-      // Pro Katalog höchstens 6 Stellen, damit ein einzelner Katalog eine
-      // mehrteilige Frage ("Werkstoff X UND Temperatur Y") nicht allein belegt.
-      if (kept.length >= MAX_CHUNKS) return kept;
-      const perCatalog = kept.filter(
-        (c) => c.catalogId === candidate.catalogId,
-      ).length;
-      if (perCatalog >= MAX_CHUNKS_PER_CATALOG) return kept;
-      kept.push(candidate);
-      return kept;
-    }, []);
+    .filter((candidate) => candidate.score > 0);
+
+  return selectChunks(scored, queries.length);
+}
+
+// Jede Teilfrage bekommt ihr eigenes Kontingent an Fundstellen, damit die
+// Belege zur zweiten Teilfrage nicht von der ersten verdrängt werden. Was
+// danach frei ist, wird mit den global besten Stellen aufgefüllt.
+export function selectChunks(
+  scored: Candidate[],
+  queryCount: number,
+): Candidate[] {
+  const chosen: Candidate[] = [];
+  const taken = new Set<string>();
+  const perCatalog = new Map<string, number>();
+
+  const tryTake = (candidate: Candidate) => {
+    if (chosen.length >= MAX_CHUNKS || taken.has(candidate.id)) return false;
+    const used = perCatalog.get(candidate.catalogId) ?? 0;
+    if (used >= MAX_CHUNKS_PER_CATALOG) return false;
+    taken.add(candidate.id);
+    perCatalog.set(candidate.catalogId, used + 1);
+    chosen.push(candidate);
+    return true;
+  };
+
+  const quota = Math.max(1, Math.floor(MAX_CHUNKS / Math.max(1, queryCount)));
+  for (let q = 0; q < queryCount; q++) {
+    const ranked = [...scored].sort(
+      (a, b) => (b.perQuery[q] ?? 0) - (a.perQuery[q] ?? 0),
+    );
+    let takenForQuery = 0;
+    for (const candidate of ranked) {
+      if (takenForQuery >= quota) break;
+      if (tryTake(candidate)) takenForQuery++;
+    }
+  }
+
+  for (const candidate of [...scored].sort((a, b) => b.score - a.score)) {
+    tryTake(candidate);
+  }
+  return chosen;
 }
 
 export async function POST(req: Request) {
