@@ -1,7 +1,7 @@
 import { cosineSimilarity } from "ai";
 import { embedTexts } from "@/lib/embeddings";
 import { decodePageIndex, searchPages, truncate } from "@/lib/page-index";
-import { planQueries } from "@/lib/query-plan";
+import { planTopics } from "@/lib/query-plan";
 import { lexicalScores } from "@/lib/search-index";
 import {
   getCatalog,
@@ -14,18 +14,20 @@ import {
 import type { CatalogMeta, Chunk } from "@/lib/catalog";
 
 // Zweistufige Suche über >1000 Kataloge:
-// 1) Vorauswahl auf SEITEN-Ebene (nicht Katalog-Ebene: ein Katalogvektor
-//    verwässert, die eine relevante Passage geht im Mittel unter) plus ein
-//    Keyword-Index für exakte Produktnamen. Beide Ranglisten werden vereinigt.
+//
+// 1) Vorauswahl auf SEITEN-Ebene, nicht auf Katalog-Ebene: ein Vektor pro
+//    Katalog verwässert, die eine gesuchte Passage geht im Mittel unter und der
+//    Katalog kommt nie in die engere Wahl. Dazu ein Keyword-Index für exakte
+//    Produktnamen ("igumid", "PRT-01"), die die Semantik übersieht.
 // 2) Chunk-Ebene: nur in den gewählten Katalogen, mit den vollen Chunk-Vektoren.
 //
-// Mehrteilige Fragen werden vorher in Teilfragen zerlegt (lib/query-plan) und
-// jede Stufe läuft je Teilfrage mit eigenem Kontingent - ein über zwei Themen
-// gemittelter Fragevektor trifft sonst keines von beiden.
+// Die Frage wird vorher in Themen zerlegt, jedes in Deutsch UND Englisch
+// (siehe lib/query-plan). Jedes Thema bekommt in beiden Stufen ein eigenes
+// Kontingent, damit das zweite Thema nicht vom ersten verdrängt wird.
 
-const PAGE_HITS = 60; // Seiten aus der semantischen Vorauswahl
-const SEMANTIC_CATALOGS = 18; // daraus abgeleitete Kataloge (gesamt)
-const LEXICAL_CATALOGS = 8; // Plätze für die Begriffs-Rangliste (gesamt)
+const PAGE_HITS = 60; // betrachtete Seiten je Suchvariante
+const SEMANTIC_CATALOGS = 18; // Kataloge aus der semantischen Vorauswahl
+const LEXICAL_CATALOGS = 8; // Kataloge aus der Begriffs-Rangliste
 export const MAX_CHUNKS = 24;
 export const MAX_CHUNKS_PER_CATALOG = 6;
 
@@ -34,8 +36,8 @@ export type Candidate = {
   catalogId: string;
   catalogName: string;
   chunk: Chunk;
-  score: number; // bester Score über alle Teilfragen
-  perQuery: number[]; // Score je Teilfrage, für die Kontingente
+  score: number; // bester Score über alle Themen
+  perQuery: number[]; // Score je THEMA (beste Sprachvariante), für die Kontingente
 };
 
 export type RetrievalDiagnostics = {
@@ -70,110 +72,142 @@ const topN = <T>(items: T[], score: (item: T) => number, n: number): T[] =>
     .slice(0, n)
     .map(({ item }) => item);
 
+// Ein Thema, seine Formulierungen und deren Vektoren.
+type PlannedTopic = { variants: string[]; vectors: number[][] };
+
 async function selectCatalogs(
-  queries: string[],
-  queryVectors: number[][],
+  topics: PlannedTopic[],
   metas: CatalogMeta[],
   diag?: RetrievalDiagnostics,
 ): Promise<CatalogMeta[]> {
   if (metas.length <= SEMANTIC_CATALOGS + LEXICAL_CATALOGS) return metas;
   const byId = new Map(metas.map((m) => [m.id, m]));
 
+  const hasVectors = topics.some((t) => t.vectors.length > 0);
   const [pageBlob, searchIndex] = await Promise.all([
-    queryVectors.length ? getPageIndexCached().catch(() => null) : null,
+    hasVectors ? getPageIndexCached().catch(() => null) : null,
     getSearchIndexCached().catch(() => null),
   ]);
 
-  const perQuerySemantic = Math.max(
+  const perTopicSemantic = Math.max(
     6,
-    Math.ceil(SEMANTIC_CATALOGS / Math.max(1, queryVectors.length)),
+    Math.ceil(SEMANTIC_CATALOGS / topics.length),
   );
-  const perQueryLexical = Math.max(
+  const perTopicLexical = Math.max(
     3,
-    Math.ceil(LEXICAL_CATALOGS / Math.max(1, queries.length)),
+    Math.ceil(LEXICAL_CATALOGS / topics.length),
   );
 
   const selected = new Map<string, CatalogMeta>();
-  const via = (meta: CatalogMeta, how: string) => {
-    if (!selected.has(meta.id)) {
-      selected.set(meta.id, meta);
-      diag?.selectedCatalogs.push({ id: meta.id, name: meta.name, via: how });
-    }
+  const take = (meta: CatalogMeta, how: string) => {
+    if (selected.has(meta.id)) return false;
+    selected.set(meta.id, meta);
+    diag?.selectedCatalogs.push({ id: meta.id, name: meta.name, via: how });
+    return true;
   };
 
   const index = pageBlob ? decodePageIndex(pageBlob) : null;
   const summaries =
-    !index && queryVectors.length
-      ? await getSummaryVectorsCached().catch(() => null)
-      : null;
+    !index && hasVectors ? await getSummaryVectorsCached().catch(() => null) : null;
 
-  queryVectors.forEach((queryVector, q) => {
-    let taken = 0;
+  topics.forEach((topic, t) => {
+    // Beste Seiten über ALLE Sprachvarianten des Themas: eine Seite zählt mit
+    // ihrer besten Übereinstimmung, nicht mit der zufällig gleichsprachigen.
     if (index) {
-      const hits = searchPages(
-        truncate(queryVector, index.dims),
-        index,
-        PAGE_HITS,
-      );
-      for (const { entry, score } of hits) {
-        if (taken >= perQuerySemantic) break;
-        const meta = byId.get(entry.c);
+      const best = new Map<string, { page: number; score: number; query: string }>();
+      topic.vectors.forEach((vector, v) => {
+        for (const { entry, score } of searchPages(
+          truncate(vector, index.dims),
+          index,
+          PAGE_HITS,
+        )) {
+          const current = best.get(entry.c);
+          if (!current || score > current.score) {
+            best.set(entry.c, {
+              page: entry.p,
+              score,
+              query: topic.variants[v] ?? "",
+            });
+          }
+        }
+      });
+
+      let taken = 0;
+      for (const [catalogId, hit] of [...best.entries()].sort(
+        (a, b) => b[1].score - a[1].score,
+      )) {
+        if (taken >= perTopicSemantic) break;
+        const meta = byId.get(catalogId);
         if (!meta) continue;
-        if (selected.has(meta.id)) continue;
-        diag?.pageHits.push({
-          query: queries[q] ?? "",
-          catalog: meta.name,
-          page: entry.p,
-          score: +score.toFixed(3),
-        });
-        via(meta, `seite:${q}`);
-        taken++;
+        if (take(meta, `seite:${t}`)) {
+          diag?.pageHits.push({
+            query: hit.query,
+            catalog: meta.name,
+            page: hit.page,
+            score: +hit.score.toFixed(3),
+          });
+          taken++;
+        }
       }
     } else if (summaries) {
+      // Fallback ohne Seiten-Index: alte Katalog-Vektoren.
       for (const meta of topN(
         metas,
         (m) => {
           const summary = summaries[m.id];
-          return summary && summary.length === queryVector.length
-            ? cosineSimilarity(queryVector, summary)
-            : -Infinity;
+          if (!summary) return -Infinity;
+          const scores = topic.vectors
+            .filter((v) => v.length === summary.length)
+            .map((v) => cosineSimilarity(v, summary));
+          return scores.length ? Math.max(...scores) : -Infinity;
         },
-        perQuerySemantic,
+        perTopicSemantic,
       )) {
-        via(meta, `katalogvektor:${q}`);
+        take(meta, `katalogvektor:${t}`);
       }
     }
   });
 
-  queries.forEach((query, q) => {
+  topics.forEach((topic, t) => {
+    const scores = new Map<number, number>();
+    for (const variant of topic.variants) {
+      if (!searchIndex) break;
+      for (const [doc, score] of lexicalScores(variant, searchIndex)) {
+        scores.set(doc, Math.max(scores.get(doc) ?? 0, score));
+      }
+    }
     const candidates: CatalogMeta[] = searchIndex
-      ? [...lexicalScores(query, searchIndex).entries()]
+      ? [...scores.entries()]
           .sort((a, b) => b[1] - a[1])
-          .slice(0, perQueryLexical)
+          .slice(0, perTopicLexical)
           .map(([docIndex]) => byId.get(searchIndex.ids[docIndex]))
           .filter((m): m is CatalogMeta => Boolean(m))
       : topN(
           metas,
           (meta) =>
-            lexicalScore(
-              query,
-              meta.name,
-              `${meta.category ?? ""} ${meta.quickId ?? ""} ${meta.series ?? ""} ${meta.notes}`,
+            Math.max(
+              ...topic.variants.map((variant) =>
+                lexicalScore(
+                  variant,
+                  meta.name,
+                  `${meta.category ?? ""} ${meta.quickId ?? ""} ${meta.series ?? ""} ${meta.notes}`,
+                ),
+              ),
             ),
-          perQueryLexical,
+          perTopicLexical,
         );
-    for (const meta of candidates) via(meta, `begriff:${q}`);
+    for (const meta of candidates) take(meta, `begriff:${t}`);
   });
 
   return selected.size ? [...selected.values()] : metas.slice(0, SEMANTIC_CATALOGS);
 }
 
-// Jede Teilfrage bekommt ihr eigenes Kontingent an Fundstellen, damit die
-// Belege zur zweiten Teilfrage nicht von der ersten verdrängt werden. Was
-// danach frei ist, wird mit den global besten Stellen aufgefüllt.
+// Jedes Thema bekommt sein eigenes Kontingent an Fundstellen, damit die Belege
+// zum zweiten Thema nicht vom ersten verdrängt werden. Der Rest wird mit den
+// global besten Stellen aufgefüllt.
 export function selectChunks(
   scored: Candidate[],
-  queryCount: number,
+  topicCount: number,
 ): Candidate[] {
   const chosen: Candidate[] = [];
   const taken = new Set<string>();
@@ -189,15 +223,15 @@ export function selectChunks(
     return true;
   };
 
-  const quota = Math.max(1, Math.floor(MAX_CHUNKS / Math.max(1, queryCount)));
-  for (let q = 0; q < queryCount; q++) {
+  const quota = Math.max(1, Math.floor(MAX_CHUNKS / Math.max(1, topicCount)));
+  for (let t = 0; t < topicCount; t++) {
     const ranked = [...scored].sort(
-      (a, b) => (b.perQuery[q] ?? 0) - (a.perQuery[q] ?? 0),
+      (a, b) => (b.perQuery[t] ?? 0) - (a.perQuery[t] ?? 0),
     );
-    let takenForQuery = 0;
+    let takenForTopic = 0;
     for (const candidate of ranked) {
-      if (takenForQuery >= quota) break;
-      if (tryTake(candidate)) takenForQuery++;
+      if (takenForTopic >= quota) break;
+      if (tryTake(candidate)) takenForTopic++;
     }
   }
 
@@ -211,25 +245,38 @@ export async function retrieveCandidates(
   question: string,
   diag?: RetrievalDiagnostics,
 ): Promise<Candidate[]> {
-  const queries = await planQueries(question);
-  diag?.queries.push(...queries);
+  const planned = await planTopics(question);
+  const flat = planned.flat();
+  diag?.queries.push(...flat);
 
-  const [allMetas, queryVectors] = await Promise.all([
+  const [allMetas, vectors] = await Promise.all([
     listCatalogsCached(),
-    embedTexts(queries).catch(() => [] as number[][]),
+    embedTexts(flat).catch(() => [] as number[][]),
   ]);
-  const metas = await selectCatalogs(queries, queryVectors, allMetas, diag);
 
+  // Vektoren wieder ihren Themen zuordnen.
+  const topics: PlannedTopic[] = [];
+  let cursor = 0;
+  for (const variants of planned) {
+    topics.push({
+      variants,
+      vectors: vectors.slice(cursor, cursor + variants.length),
+    });
+    cursor += variants.length;
+  }
+
+  const metas = await selectCatalogs(topics, allMetas, diag);
   const records = await Promise.all(
     metas.map(async (meta, catalogIndex) => {
-      const [record, vectors] = await Promise.all([
+      const [record, chunkVectors] = await Promise.all([
         getCatalog(meta.id),
-        queryVectors.length ? getCatalogVectors(meta.id).catch(() => null) : null,
+        vectors.length ? getCatalogVectors(meta.id).catch(() => null) : null,
       ]);
-      return { record, vectors, catalogIndex };
+      return { record, chunkVectors, catalogIndex };
     }),
   );
 
+  const dims = vectors[0]?.length;
   const scored = records
     .filter(
       (
@@ -238,22 +285,30 @@ export async function retrieveCandidates(
         record: NonNullable<typeof entry.record>;
       } => Boolean(entry.record),
     )
-    .flatMap(({ record, vectors, catalogIndex }) => {
-      const dims = queryVectors[0]?.length;
+    .flatMap(({ record, chunkVectors, catalogIndex }) => {
       const vectorUsable =
-        vectors &&
-        vectors.length === record.chunks.length &&
-        vectors[0]?.length === dims;
+        chunkVectors &&
+        chunkVectors.length === record.chunks.length &&
+        chunkVectors[0]?.length === dims;
 
       return record.chunks.map((chunk, chunkIndex) => {
-        const perQuery = queries.map((query, q) => {
-          const vectorScore = vectorUsable
-            ? cosineSimilarity(queryVectors[q], vectors[chunkIndex])
-            : -Infinity;
-          const textScore = lexicalScore(query, record.name, chunk.text);
-          return Number.isFinite(vectorScore)
-            ? vectorScore + textScore * 0.05
-            : textScore;
+        // Je Thema die BESTE Sprachvariante zählen: eine englische Fundstelle
+        // soll nicht dadurch verlieren, dass die Frage deutsch gestellt war.
+        const perQuery = topics.map((topic) => {
+          const scores = topic.vectors.map((vector, v) => {
+            const vectorScore = vectorUsable
+              ? cosineSimilarity(vector, chunkVectors[chunkIndex])
+              : -Infinity;
+            const textScore = lexicalScore(
+              topic.variants[v] ?? "",
+              record.name,
+              chunk.text,
+            );
+            return Number.isFinite(vectorScore)
+              ? vectorScore + textScore * 0.05
+              : textScore;
+          });
+          return scores.length ? Math.max(...scores) : 0;
         });
 
         return {
@@ -268,5 +323,5 @@ export async function retrieveCandidates(
     })
     .filter((candidate) => candidate.score > 0);
 
-  return selectChunks(scored, queries.length);
+  return selectChunks(scored, topics.length);
 }
