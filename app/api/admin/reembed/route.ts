@@ -1,5 +1,6 @@
 import { embedTexts } from "@/lib/embeddings";
-import { roundVector, summaryTextFor } from "@/lib/process-upload";
+import { roundVector, searchTextFor, summaryTextFor } from "@/lib/process-upload";
+import { uniqueTerms } from "@/lib/search-index";
 import {
   getCatalog,
   getSummaryVectors,
@@ -8,11 +9,16 @@ import {
   saveSummaryVectors,
 } from "@/lib/store";
 
-// Wartungsroute: Summary- und Chunk-Vektoren mit dem AKTUELL konfigurierten
-// Embedding-Provider neu berechnen (z. B. nach Wechsel Gemini -> Azure).
-// Serverseitig, weil die Azure-Zugangsdaten nur zur Laufzeit verfügbar sind.
-// Auth über REEMBED_TOKEN-Env-Var; ohne gesetzte Variable ist die Route inert.
+// Wartungsroute: rechnet Chunk- und Summary-Vektoren mit dem AKTUELL
+// konfigurierten Embedding-Provider neu und liefert die Suchbegriffe pro
+// Katalog zurück. Serverseitig, weil die Azure-Zugangsdaten nur zur Laufzeit
+// verfügbar sind. Auth über REEMBED_TOKEN; ohne die Variable ist die Route inert.
+//
 // Aufruf in Scheiben (offset/limit), bis nextOffset null ist.
+// mode=collect gibt Summary-Vektoren und Terme in der Antwort zurück, statt die
+// gemeinsamen Index-Blobs pro Scheibe zu überschreiben: Blob-Reads sind nach
+// einem Overwrite bis zu ~60s stale, ein Read-Modify-Write über viele Scheiben
+// verliert dadurch Einträge. Der Aufrufer aggregiert und schreibt einmal.
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -30,25 +36,26 @@ export async function POST(req: Request) {
     200,
     Math.max(1, Number(searchParams.get("limit") ?? "60") || 60),
   );
-  // mode=collect: Vektoren in der Antwort zurückgeben statt den gemeinsamen
-  // Summary-Blob pro Scheibe zu überschreiben. Blob-Reads nach Overwrites
-  // können bis zu ~60s stale sein; Read-Modify-Write über viele Scheiben
-  // verliert dadurch Einträge. Der Aufrufer aggregiert und schreibt einmal.
   const collect = searchParams.get("mode") === "collect";
+  // chunks=1: zusätzlich die Chunk-Vektoren jedes Katalogs neu berechnen.
+  const withChunks = searchParams.get("chunks") === "1";
 
   const metas = await listCatalogs();
   const slice = metas.slice(offset, offset + limit);
 
   const summaries: { id: string; text: string }[] = [];
-  let ragReembedded = 0;
+  const terms: Record<string, string[]> = {};
+  let chunksEmbedded = 0;
+
   for (const meta of slice) {
     const record = await getCatalog(meta.id);
     if (!record) continue;
     summaries.push({ id: record.id, text: summaryTextFor(record) });
-    if (record.mode === "rag") {
+    terms[record.id] = uniqueTerms(searchTextFor(record));
+    if (withChunks && record.chunks.length) {
       const vectors = await embedTexts(record.chunks.map((c) => c.text));
       await saveCatalogVectors(record.id, vectors);
-      ragReembedded++;
+      chunksEmbedded += vectors.length;
     }
   }
 
@@ -69,9 +76,9 @@ export async function POST(req: Request) {
     total: metas.length,
     offset,
     processed: slice.length,
-    ragReembedded,
+    chunksEmbedded,
     vectorDims: vectors[0]?.length ?? null,
     nextOffset,
-    ...(collect ? { vectors: byId } : {}),
+    ...(collect ? { vectors: byId, terms } : {}),
   });
 }

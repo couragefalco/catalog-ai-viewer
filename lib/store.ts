@@ -1,11 +1,13 @@
 import { put, get, list, del } from "@vercel/blob";
 import type { CatalogMeta, CatalogRecord } from "./catalog";
+import type { SearchIndex } from "./search-index";
 
 const PREFIX = "catalogs/";
 // Der Index lebt bewusst AUSSERHALB von "catalogs/", damit ältere Deployments
 // (die alle *.json unter dem Prefix als Kataloge interpretieren) ihn ignorieren.
 const INDEX_KEY = "catalog-index/index.json";
 const SUMMARY_VEC_KEY = "catalog-index/summary-vectors.json";
+const SEARCH_INDEX_KEY = "catalog-index/search-index.json";
 const jsonKey = (id: string) => `${PREFIX}${id}.json`;
 const pdfKey = (id: string) => `${PREFIX}${id}.pdf`;
 const vecKey = (id: string) => `${PREFIX}${id}.vec.json`;
@@ -183,6 +185,44 @@ async function removeSummaryVector(id: string): Promise<void> {
   if (!vectors || !(id in vectors)) return;
   delete vectors[id];
   await saveSummaryVectors(vectors);
+}
+
+// --- Volltext-Suchindex ---------------------------------------------------
+
+export async function getSearchIndex(): Promise<SearchIndex | null> {
+  return readJsonBlob<SearchIndex>(SEARCH_INDEX_KEY);
+}
+
+export async function saveSearchIndex(index: SearchIndex): Promise<void> {
+  await writeJsonBlob(SEARCH_INDEX_KEY, index);
+}
+
+// --- Warmer Cache für die pro-Anfrage gelesenen Index-Blobs ---------------
+// Der globale Chat liest Index, Summary-Vektoren und Suchindex bei JEDER Frage.
+// Auf einer warmen Fluid-Compute-Instanz spart der Cache die Blob-Roundtrips.
+
+const TTL_MS = 60_000;
+type Cached<T> = { value: T; at: number };
+const caches = new Map<string, Cached<unknown>>();
+
+async function cached<T>(key: string, load: () => Promise<T>): Promise<T> {
+  const hit = caches.get(key) as Cached<T> | undefined;
+  if (hit && Date.now() - hit.at < TTL_MS) return hit.value;
+  const value = await load();
+  caches.set(key, { value, at: Date.now() });
+  return value;
+}
+
+export function listCatalogsCached(): Promise<CatalogMeta[]> {
+  return cached("index", listCatalogs);
+}
+
+export function getSummaryVectorsCached(): Promise<SummaryVectors | null> {
+  return cached("summary", getSummaryVectors);
+}
+
+export function getSearchIndexCached(): Promise<SearchIndex | null> {
+  return cached("search", getSearchIndex);
 }
 
 export async function saveCatalogVectors(

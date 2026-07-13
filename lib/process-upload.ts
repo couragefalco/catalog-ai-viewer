@@ -1,29 +1,70 @@
 import { enrichCatalog } from "@/lib/enrich";
 import { ingestPdf, slugify } from "@/lib/ingest";
 import {
+  getSearchIndex,
   saveCatalog,
   saveCatalogVectors,
+  saveSearchIndex,
   uniqueId,
   upsertSummaryVector,
 } from "@/lib/store";
 import { RAG_PAGE_THRESHOLD, embedTexts } from "@/lib/embeddings";
+import { uniqueTerms } from "@/lib/search-index";
 import type { CatalogRecord } from "@/lib/catalog";
 
 // Vektoren runden, damit der gebündelte Summary-Blob klein bleibt.
 export const roundVector = (v: number[]) =>
   v.map((x) => Math.round(x * 1e5) / 1e5);
 
+// Der Summary-Vektor entscheidet in der globalen Suche, ob ein Katalog
+// überhaupt in die engere Wahl kommt. Deshalb den kompletten Text einbeziehen
+// (fast alle Kataloge sind 1-5 Seiten), nicht nur die ersten Blöcke - sonst
+// bleiben Angaben aus dem hinteren Teil des Dokuments unsichtbar.
 export function summaryTextFor(
   record: Pick<CatalogRecord, "name" | "notes" | "category" | "chunks">,
 ): string {
-  const sample = record.chunks
-    .slice(0, 20)
+  const body = record.chunks
     .map((c) => c.text)
     .join(" ")
-    .slice(0, 4000);
-  return [record.name, record.category, record.notes, sample]
+    .slice(0, 8000);
+  return [record.name, record.category, record.notes, body]
     .filter(Boolean)
     .join("\n");
+}
+
+export function searchTextFor(
+  record: Pick<CatalogRecord, "name" | "notes" | "category" | "quickId" | "series" | "chunks">,
+): string {
+  return [
+    record.name,
+    record.category,
+    record.quickId,
+    record.series,
+    record.notes,
+    record.chunks.map((c) => c.text).join(" "),
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+export async function upsertSearchIndexEntry(
+  record: Pick<CatalogRecord, "id" | "name" | "notes" | "category" | "quickId" | "series" | "chunks">,
+): Promise<void> {
+  const index = (await getSearchIndex()) ?? { ids: [], postings: {} };
+  let docIndex = index.ids.indexOf(record.id);
+  if (docIndex === -1) {
+    docIndex = index.ids.length;
+    index.ids.push(record.id);
+  } else {
+    for (const docs of Object.values(index.postings)) {
+      const at = docs.indexOf(docIndex);
+      if (at !== -1) docs.splice(at, 1);
+    }
+  }
+  for (const term of uniqueTerms(searchTextFor(record))) {
+    (index.postings[term] ??= []).push(docIndex);
+  }
+  await saveSearchIndex(index);
 }
 
 export async function buildSummaryVector(
@@ -88,12 +129,16 @@ export async function processUpload(
     chunks,
   };
   await saveCatalog(record, bytes);
-  if (mode === "rag") {
+  // Chunk-Vektoren werden für JEDEN Katalog gespeichert, nicht nur für große:
+  // die globale Suche bewertet Fundstellen quer über alle Kataloge semantisch.
+  // "mode" steuert weiterhin nur den Dokument-Chat (volles PDF vs. Retrieval).
+  if (chunks.length) {
     const vectors = await embedTexts(chunks.map((c) => c.text));
     await saveCatalogVectors(id, vectors);
   }
   const summaryVector = await buildSummaryVector(record).catch(() => null);
   if (summaryVector) await upsertSummaryVector(id, summaryVector);
+  await upsertSearchIndexEntry(record).catch(() => {});
   return {
     id,
     name: record.name,
