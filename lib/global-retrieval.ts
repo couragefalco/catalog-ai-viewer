@@ -42,7 +42,8 @@ export const MAX_CHUNKS_PER_CATALOG = 6;
 // dem Thema mit den höheren Ähnlichkeiten, und die Seite zum zweiten Thema
 // bliebe wieder unergänzt.
 const PAGE_EXPANSION_SEEDS_PER_TOPIC = 2;
-export const MAX_CHUNKS_WITH_CONTEXT = 34;
+const MAX_PAGE_SIBLINGS = 8; // je Saatkorn, damit eine volle Seite nicht flutet
+export const MAX_CHUNKS_WITH_CONTEXT = 40;
 
 export type Candidate = {
   id: string;
@@ -236,6 +237,7 @@ export function selectChunks(
     return true;
   };
 
+  // 1) Kontingent je Thema.
   const quota = Math.max(1, Math.floor(MAX_CHUNKS / Math.max(1, topicCount)));
   for (let t = 0; t < topicCount; t++) {
     const ranked = [...scored].sort(
@@ -248,11 +250,9 @@ export function selectChunks(
     }
   }
 
-  for (const candidate of [...scored].sort((a, b) => b.score - a.score)) {
-    tryTake(candidate);
-  }
-
-  // Seiten-Kontext: die besten Fundstellen JE THEMA um ihre Nachbarn ergänzen.
+  // 2) Seiten-Kontext VOR dem Auffüllen: sonst sind die Plätze von global
+  //    hoch bewerteten Einzelstellen belegt und ausgerechnet die Nachbarn des
+  //    besten Treffers fallen hinten runter.
   const seeds: Candidate[] = [];
   for (let t = 0; t < Math.max(1, topicCount); t++) {
     for (const candidate of [...chosen]
@@ -262,8 +262,10 @@ export function selectChunks(
     }
   }
   for (const seed of seeds) {
+    let added = 0;
     for (const sibling of scored) {
       if (chosen.length >= MAX_CHUNKS_WITH_CONTEXT) break;
+      if (added >= MAX_PAGE_SIBLINGS) break;
       if (taken.has(sibling.id)) continue;
       if (
         sibling.catalogId !== seed.catalogId ||
@@ -273,7 +275,13 @@ export function selectChunks(
       }
       taken.add(sibling.id);
       chosen.push(sibling);
+      added++;
     }
+  }
+
+  // 3) Restplätze mit den global besten Stellen auffüllen.
+  for (const candidate of [...scored].sort((a, b) => b.score - a.score)) {
+    tryTake(candidate);
   }
 
   return chosen;
