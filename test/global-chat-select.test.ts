@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { selectChunks, MAX_CHUNKS_PER_CATALOG } from "../app/api/chat/global/route";
+import { selectChunks, MAX_CHUNKS_PER_CATALOG } from "../lib/global-retrieval";
 import type { Chunk } from "../lib/catalog";
 
 const chunk = (id: string): Chunk => ({
