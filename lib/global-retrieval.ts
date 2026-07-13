@@ -261,22 +261,35 @@ export function selectChunks(
       if (!seeds.includes(candidate)) seeds.push(candidate);
     }
   }
-  for (const seed of seeds) {
-    let added = 0;
-    for (const sibling of scored) {
+  // Reihum je Saatkorn EINEN Nachbarn nachlegen: würde man Saatkorn für
+  // Saatkorn abarbeiten, verbrauchte das erste Thema alle freien Plätze und
+  // die Seite des zweiten Themas bliebe wieder unergänzt.
+  const pending = seeds.map((seed) =>
+    scored.filter(
+      (sibling) =>
+        sibling.catalogId === seed.catalogId &&
+        sibling.chunk.page === seed.chunk.page,
+    ),
+  );
+  const cursors = seeds.map(() => 0);
+  const addedPerSeed = seeds.map(() => 0);
+
+  for (let round = 0; round < MAX_PAGE_SIBLINGS; round++) {
+    let progressed = false;
+    for (let s = 0; s < seeds.length; s++) {
       if (chosen.length >= MAX_CHUNKS_WITH_CONTEXT) break;
-      if (added >= MAX_PAGE_SIBLINGS) break;
-      if (taken.has(sibling.id)) continue;
-      if (
-        sibling.catalogId !== seed.catalogId ||
-        sibling.chunk.page !== seed.chunk.page
-      ) {
-        continue;
+      if (addedPerSeed[s] >= MAX_PAGE_SIBLINGS) continue;
+      while (cursors[s] < pending[s].length) {
+        const sibling = pending[s][cursors[s]++];
+        if (taken.has(sibling.id)) continue;
+        taken.add(sibling.id);
+        chosen.push(sibling);
+        addedPerSeed[s]++;
+        progressed = true;
+        break;
       }
-      taken.add(sibling.id);
-      chosen.push(sibling);
-      added++;
     }
+    if (!progressed || chosen.length >= MAX_CHUNKS_WITH_CONTEXT) break;
   }
 
   // 3) Restplätze mit den global besten Stellen auffüllen.
