@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     queries: diag.queries,
     selectedCatalogs: diag.selectedCatalogs,
     topPageHits: diag.pageHits.slice(0, 20),
-    chunks: candidates.slice(0, 16).map((c) => ({
+    chunks: candidates.map((c) => ({
       catalog: c.catalogName,
       page: c.chunk.page,
       score: +c.score.toFixed(3),
