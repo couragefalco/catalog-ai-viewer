@@ -38,7 +38,10 @@ export const MAX_CHUNKS_PER_CATALOG = 6;
 // daneben und fiel unter den Deckel je Katalog. Die Seite ist die Einheit, in
 // der solche Kataloge geschrieben sind; wer einen Absatz trifft, braucht meist
 // die Nachbarn dazu.
-const PAGE_EXPANSION_SEEDS = 4; // beste Fundstellen, deren Seite ergänzt wird
+// Die Saat wird JE THEMA gewählt: nach reinem Score kämen alle Saatkörner aus
+// dem Thema mit den höheren Ähnlichkeiten, und die Seite zum zweiten Thema
+// bliebe wieder unergänzt.
+const PAGE_EXPANSION_SEEDS_PER_TOPIC = 2;
 export const MAX_CHUNKS_WITH_CONTEXT = 34;
 
 export type Candidate = {
@@ -249,10 +252,15 @@ export function selectChunks(
     tryTake(candidate);
   }
 
-  // Seiten-Kontext: die besten Fundstellen um ihre Seiten-Nachbarn ergänzen.
-  const seeds = [...chosen]
-    .sort((a, b) => b.score - a.score)
-    .slice(0, PAGE_EXPANSION_SEEDS);
+  // Seiten-Kontext: die besten Fundstellen JE THEMA um ihre Nachbarn ergänzen.
+  const seeds: Candidate[] = [];
+  for (let t = 0; t < Math.max(1, topicCount); t++) {
+    for (const candidate of [...chosen]
+      .sort((a, b) => (b.perQuery[t] ?? 0) - (a.perQuery[t] ?? 0))
+      .slice(0, PAGE_EXPANSION_SEEDS_PER_TOPIC)) {
+      if (!seeds.includes(candidate)) seeds.push(candidate);
+    }
+  }
   for (const seed of seeds) {
     for (const sibling of scored) {
       if (chosen.length >= MAX_CHUNKS_WITH_CONTEXT) break;
