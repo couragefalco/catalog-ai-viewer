@@ -15,7 +15,7 @@ const schema = z.object({
     .array(z.string())
     .min(1)
     .max(3)
-    .describe("Eigenständige Suchanfragen, je ein Thema"),
+    .describe("Eigenständige, vollständig ausformulierte Fragen, je ein Thema"),
 });
 
 export async function planQueries(question: string): Promise<string[]> {
@@ -26,12 +26,20 @@ export async function planQueries(question: string): Promise<string[]> {
       model: getChatModel(),
       schema,
       abortSignal: AbortSignal.timeout(8000),
-      prompt: `Zerlege die folgende Frage in 1-3 eigenständige Suchanfragen für eine Produktkatalog-Suche.
+      // Wichtig: VOLLE Fragesätze verlangen, keine Stichwort-Fragmente.
+      // Die Suche ist ein Embedding-Vergleich, und ein Fragment wie
+      // "Werkstoff Energieketten" liegt im Vektorraum näher an beliebigen
+      // deutschen Werbetexten als an dem englischen Katalog, der den Werkstoff
+      // tatsächlich beschreibt. Ein ganzer Satz trägt genug Kontext, um die
+      // Sprachgrenze zu überbrücken.
+      prompt: `Zerlege die folgende Frage in 1-3 eigenständige Suchfragen für eine Produktkatalog-Suche.
 Regeln:
-- Jede Suchanfrage behandelt GENAU EIN Thema (ein Produkt, eine Eigenschaft).
+- Jede Suchfrage behandelt GENAU EIN Thema (ein Produkt, eine Eigenschaft).
+- Formuliere jede Suchfrage als VOLLSTÄNDIGEN, natürlichen Fragesatz.
+  Gut: "Aus welchem Werkstoff bestehen die igus Energieketten?"
+  Schlecht: "Werkstoff Energieketten"
 - Behalte Produktnamen und Schreibweisen exakt bei (z. B. "iglidur G", "igumid").
-- Keine Füllwörter, keine Rückfragen, nur die Suchanfragen.
-- Behandelt die Frage nur ein Thema, gib genau eine Suchanfrage zurück.
+- Behandelt die Frage nur ein Thema, gib genau eine Suchfrage zurück.
 
 Frage: ${trimmed}`,
     });
