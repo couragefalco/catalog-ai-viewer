@@ -23,4 +23,10 @@ export type CatalogMeta = {
   sourceFile?: string; // Original-Dateiname des Uploads (für Re-Importe)
 };
 
-export type CatalogRecord = CatalogMeta & { chunks: Chunk[] };
+export type CatalogRecord = CatalogMeta & {
+  chunks: Chunk[];
+  // Optionale Verhaltensvorgaben nur für den Dokument-Chat dieses Katalogs
+  // (z. B. Landingpage-Verkaufslogik). Bewusst NICHT Teil von CatalogMeta,
+  // damit es weder den Index aufbläht noch die globale Suche beeinflusst.
+  agentInstructions?: string;
+};

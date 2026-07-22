@@ -66,7 +66,7 @@ export async function rebuildCatalogIndex(): Promise<CatalogMeta[]> {
   const metas = sortMetas(
     records
       .filter((r): r is CatalogRecord => r !== null)
-      .map(({ chunks: _chunks, ...meta }) => meta),
+      .map(({ chunks: _chunks, agentInstructions: _ai, ...meta }) => meta),
   );
   await writeJsonBlob(INDEX_KEY, metas);
   return metas;
@@ -127,7 +127,7 @@ export async function saveCatalog(
     }),
   ]);
   if (options?.updateIndex !== false) {
-    const { chunks: _chunks, ...meta } = record;
+    const { chunks: _chunks, agentInstructions: _ai, ...meta } = record;
     await upsertIndexEntry(meta);
   }
 }
@@ -146,7 +146,7 @@ export async function patchCatalog(
     allowOverwrite: true,
     contentType: "application/json",
   });
-  const { chunks: _chunks, ...meta } = next;
+  const { chunks: _chunks, agentInstructions: _ai, ...meta } = next;
   await upsertIndexEntry(meta);
   return next;
 }

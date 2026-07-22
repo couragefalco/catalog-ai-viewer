@@ -3,6 +3,7 @@ import { getChatModel } from "@/lib/chat-model";
 import { incrementQuestionCount } from "@/lib/account";
 import { getCatalog, getCatalogPdfBytes, getCatalogVectors } from "@/lib/store";
 import { embedQuery, topKIndices } from "@/lib/embeddings";
+import { ASSET_PATH } from "@/lib/base-path";
 import type { Citation } from "@/lib/types";
 
 export const maxDuration = 60;
@@ -76,6 +77,15 @@ export async function POST(req: Request) {
     ? `\n\nZUSÄTZLICHER KONTEXT (vom Betreiber gepflegt, beachte ihn):\n${catalog.notes.trim()}\n`
     : "";
 
+  // Optionale, pro Katalog gepflegte Verhaltensvorgaben (z. B. Landingpage-
+  // Verkaufslogik). Nur hier im Dokument-Chat aktiv, damit die übrigen Kataloge
+  // und die globale Suche neutral bleiben. Der In-App-Download-Link zum PDF wird
+  // serverseitig gesetzt, damit er über den /catalog-Proxy überall auflöst.
+  const whitepaperUrl = `${ASSET_PATH}/api/catalog/${docId}/pdf`;
+  const agentBlock = catalog.agentInstructions?.trim()
+    ? `\n\nVERHALTENSVORGABEN (vom Betreiber, strikt befolgen):\n${catalog.agentInstructions.trim()}\n\nDOWNLOAD-LINK ZUM DOKUMENT (biete ihn als Markdown-Link an, z. B. [Whitepaper herunterladen](${whitepaperUrl}), und verwende exakt diese URL, erfinde keine andere):\n${whitepaperUrl}\n`
+    : "";
+
   const ragOnlyInstruction = attachPdf
     ? ""
     : "\nBeantworte die Frage AUSSCHLIESSLICH auf Basis der unten aufgeführten Textauszüge und zitiere deren [[chunk-id]].";
@@ -83,7 +93,7 @@ export async function POST(req: Request) {
   const system = attachPdf
     ? `Du bist ein Assistent für genau ein PDF: "${catalog.name}".
 Das vollständige PDF ist angehängt — lies es direkt und vollständig, inklusive Tabellen, Maße und Spalten. Gib Tabellen bei Bedarf als Markdown-Tabelle aus.
-Antworte auf Deutsch, präzise. Wenn etwas nicht im Dokument steht, sage das ehrlich.${notesBlock}
+Antworte auf Deutsch, präzise. Wenn etwas nicht im Dokument steht, sage das ehrlich.${notesBlock}${agentBlock}
 
 ZITATE:
 - Setze hinter jede Aussage einen Marker im Format [[chunk-id]] (genau EINE id pro Klammerpaar).
@@ -94,7 +104,7 @@ ZITATE:
 ${candidates}
 === ENDE ===`
     : `Du bist ein Assistent für genau ein PDF: "${catalog.name}".${ragOnlyInstruction}
-Antworte auf Deutsch, präzise. Wenn etwas nicht in den Auszügen steht, sage das ehrlich.${notesBlock}
+Antworte auf Deutsch, präzise. Wenn etwas nicht in den Auszügen steht, sage das ehrlich.${notesBlock}${agentBlock}
 
 ZITATE:
 - Setze hinter jede Aussage einen Marker im Format [[chunk-id]] (genau EINE id pro Klammerpaar).
