@@ -24,6 +24,7 @@ export type Catalog = {
   numPages: number;
   file: string;
   category?: string;
+  defaultZoom?: number;
 };
 import type { Citation } from "@/lib/types";
 import { track } from "@/lib/analytics";
@@ -101,7 +102,7 @@ export function CatalogViewer({
   onPageChange,
   activeCitation,
 }: CatalogViewerProps) {
-  const [zoom, setZoom] = useState(100);
+  const [zoom, setZoom] = useState(catalog.defaultZoom ?? 100);
   const [numPages, setNumPages] = useState(catalog.numPages);
   const [query, setQuery] = useState("");
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
@@ -136,6 +137,11 @@ export function CatalogViewer({
     const next = ZOOMS[Math.min(ZOOMS.length - 1, Math.max(0, i + dir))];
     setZoom(next ?? zoom);
   };
+
+  // Beim Katalogwechsel (Sidebar) auf den Start-Zoom des Katalogs zurück.
+  useEffect(() => {
+    setZoom(catalog.defaultZoom ?? 100);
+  }, [catalog.id, catalog.defaultZoom]);
 
   useEffect(() => {
     track("catalog_opened", {
@@ -353,10 +359,11 @@ export function CatalogViewer({
             ))}
           </aside>
 
-          {/* Canvas */}
+          {/* Canvas: Seite horizontal UND vertikal zentriert (m-auto), scrollt
+              sauber, wenn sie größer als der Bereich ist. */}
           <div className="relative flex-1 overflow-auto">
-            <div className="flex min-h-full items-start justify-center p-6 lg:p-10">
-              <div className="relative shadow-2xl ring-1 ring-black/10">
+            <div className="flex min-h-full min-w-full p-6 lg:p-10">
+              <div className="relative m-auto shadow-2xl ring-1 ring-black/10">
                 <Page
                   key={`${catalog.id}-${page}-${zoom}`}
                   pageNumber={page}
