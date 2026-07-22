@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import {
   ChevronLeft,
@@ -24,7 +24,7 @@ export type Catalog = {
   numPages: number;
   file: string;
   category?: string;
-  defaultZoom?: number;
+  fitToWidth?: boolean;
 };
 import type { Citation } from "@/lib/types";
 import { track } from "@/lib/analytics";
@@ -59,7 +59,7 @@ import {
 // both standalone and behind a reverse proxy.
 pdfjs.GlobalWorkerOptions.workerSrc = `${ASSET_PATH}/pdf.worker.min.mjs`;
 
-const ZOOMS = [60, 75, 90, 100, 125, 150, 200];
+const ZOOMS = [60, 75, 90, 100, 125, 150, 175, 200, 250, 300];
 const BASE_WIDTH = 560;
 const PAGE_ASPECT = 1.384;
 
@@ -102,8 +102,9 @@ export function CatalogViewer({
   onPageChange,
   activeCitation,
 }: CatalogViewerProps) {
-  const [zoom, setZoom] = useState(catalog.defaultZoom ?? 100);
+  const [zoom, setZoom] = useState(100);
   const [numPages, setNumPages] = useState(catalog.numPages);
+  const canvasAreaRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState("");
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const highlight =
@@ -133,15 +134,30 @@ export function CatalogViewer({
   const isGroupOpen = (group: string) => (q ? true : (openGroups[group] ?? false));
 
   const stepZoom = (dir: 1 | -1) => {
-    const i = ZOOMS.indexOf(zoom);
-    const next = ZOOMS[Math.min(ZOOMS.length - 1, Math.max(0, i + dir))];
-    setZoom(next ?? zoom);
+    // Nächste Stufe finden, auch wenn der aktuelle (Fit-)Wert nicht in ZOOMS liegt.
+    if (dir === 1) {
+      const next = ZOOMS.find((z) => z > zoom);
+      setZoom(next ?? ZOOMS[ZOOMS.length - 1]);
+    } else {
+      const below = ZOOMS.filter((z) => z < zoom);
+      setZoom(below.length ? below[below.length - 1] : ZOOMS[0]);
+    }
   };
 
-  // Beim Katalogwechsel (Sidebar) auf den Start-Zoom des Katalogs zurück.
+  // Start-Zoom je Katalog: normal 100 %. Für fitToWidth-Kataloge (Doppelseiten-
+  // Whitepaper) die Seite an die verfügbare Lesebreite anpassen - passt sich so
+  // an jeden Bildschirm an, statt einer festen Prozentzahl.
   useEffect(() => {
-    setZoom(catalog.defaultZoom ?? 100);
-  }, [catalog.id, catalog.defaultZoom]);
+    let next = 100;
+    if (catalog.fitToWidth) {
+      const avail = (canvasAreaRef.current?.clientWidth ?? BASE_WIDTH) - 56;
+      if (avail > 0) {
+        next = Math.min(300, Math.max(75, Math.round((avail / BASE_WIDTH) * 100)));
+      }
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- einmalige Messung des Start-Zooms je Katalog
+    setZoom(next);
+  }, [catalog.id, catalog.fitToWidth]);
 
   useEffect(() => {
     track("catalog_opened", {
@@ -361,7 +377,7 @@ export function CatalogViewer({
 
           {/* Canvas: Seite horizontal UND vertikal zentriert (m-auto), scrollt
               sauber, wenn sie größer als der Bereich ist. */}
-          <div className="relative flex-1 overflow-auto">
+          <div ref={canvasAreaRef} className="relative flex-1 overflow-auto">
             <div className="flex min-h-full min-w-full p-6 lg:p-10">
               <div className="relative m-auto shadow-2xl ring-1 ring-black/10">
                 <Page
