@@ -79,9 +79,10 @@ export async function POST(req: Request) {
 
   // Optionale, pro Katalog gepflegte Verhaltensvorgaben (z. B. Landingpage-
   // Verkaufslogik). Nur hier im Dokument-Chat aktiv, damit die übrigen Kataloge
-  // und die globale Suche neutral bleiben. Der In-App-Download-Link zum PDF wird
-  // serverseitig gesetzt, damit er über den /catalog-Proxy überall auflöst.
-  const whitepaperUrl = `${ASSET_PATH}/api/catalog/${docId}/pdf`;
+  // und die globale Suche neutral bleiben. Der Link zeigt bei Teaser-Katalogen
+  // auf das externe Formular (Lead-Erfassung), sonst auf das PDF selbst.
+  const whitepaperUrl =
+    catalog.downloadUrl || `${ASSET_PATH}/api/catalog/${docId}/pdf`;
   const agentBlock = catalog.agentInstructions?.trim()
     ? `\n\nVERHALTENSVORGABEN (vom Betreiber, strikt befolgen):\n${catalog.agentInstructions.trim()}\n\nDOWNLOAD-LINK ZUM DOKUMENT (biete ihn als Markdown-Link an, z. B. [Whitepaper herunterladen](${whitepaperUrl}), und verwende exakt diese URL, erfinde keine andere):\n${whitepaperUrl}\n`
     : "";
@@ -188,7 +189,15 @@ ${candidates}
         }
         // Bei Katalogen mit Verhaltensvorgaben (Landingpage) den Download-Link
         // deterministisch anhängen - das Modell setzt ihn nicht zuverlässig.
-        if (catalog.agentInstructions && !full.includes(whitepaperUrl)) {
+        // Bei Teaser-Katalogen (coverOnly) nur, wenn ein externes Ziel
+        // (Formular) gesetzt ist - sonst gäbe es keinen sinnvollen Download.
+        const canOfferDownload =
+          Boolean(catalog.downloadUrl) || !catalog.coverOnly;
+        if (
+          catalog.agentInstructions &&
+          canOfferDownload &&
+          !full.includes(whitepaperUrl)
+        ) {
           const linkMd = `\n\n[Whitepaper herunterladen](${whitepaperUrl})`;
           full += linkMd;
           controller.enqueue(encoder.encode(linkMd));

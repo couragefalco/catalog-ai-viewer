@@ -49,6 +49,23 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // Einbettung als iFrame auf igus-Websites erlauben (Landingpage/Teaser).
+  // frame-ancestors ersetzt das alte X-Frame-Options und lässt nur igus-
+  // (und die eigene Poase-) Herkunft zu.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value:
+              "frame-ancestors 'self' https://*.igus.de https://*.igus.eu https://*.igus.net https://*.poase.com;",
+          },
+        ],
+      },
+    ];
+  },
   // mupdf ships a large WASM binary; keep it out of the bundler so it loads
   // natively in the Node.js runtime of our route handlers.
   serverExternalPackages: ["mupdf"],

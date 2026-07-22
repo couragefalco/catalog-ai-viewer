@@ -25,6 +25,8 @@ export type Catalog = {
   file: string;
   category?: string;
   exampleQuestions?: string[];
+  coverOnly?: boolean;
+  downloadUrl?: string;
 };
 import type { Citation } from "@/lib/types";
 import { track } from "@/lib/analytics";
@@ -110,16 +112,26 @@ export function CatalogViewer({
   const lastAutoPage = useRef(0);
   const [query, setQuery] = useState("");
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  // Teaser-Modus: nur das Deckblatt zeigen (Seite 1), keine Blätter-/Seiten-
+  // Navigation, und das volle PDF gar nicht laden (nur die Vorschau).
+  const coverOnly = Boolean(catalog.coverOnly);
+  const displayPage = coverOnly ? 1 : page;
   const highlight =
+    !coverOnly &&
     activeCitation &&
     activeCitation.page === page &&
     (!activeCitation.catalogId || activeCitation.catalogId === catalog.id)
       ? activeCitation
       : null;
   const pageWidth = (zoom / 100) * BASE_WIDTH;
-  const fileUrl = catalog.file.startsWith("/")
+  const baseFile = catalog.file.startsWith("/")
     ? `${ASSET_PATH}${catalog.file}`
     : `${ASSET_PATH}/${catalog.file}`;
+  const fileUrl = coverOnly ? `${baseFile}?preview=1` : baseFile;
+  // "Herunterladen" führt bei Teaser-Katalogen auf das externe Formular
+  // (Lead-Erfassung), sonst auf das PDF selbst.
+  const downloadHref = catalog.downloadUrl || fileUrl;
+  const externalDownload = Boolean(catalog.downloadUrl);
 
   const q = query.trim().toLowerCase();
   const filtered = catalogs
@@ -269,26 +281,30 @@ export function CatalogViewer({
           </div>
 
           <div className="ml-auto flex items-center gap-1">
-            <ToolbarButton
-              label="Vorherige Seite"
-              disabled={page <= 1}
-              onClick={() => onPageChange(page - 1)}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </ToolbarButton>
-            <span className="shrink-0 whitespace-nowrap px-1 font-mono text-xs tabular-nums">
-              <span className="text-foreground">{page}</span>
-              <span className="text-muted-foreground"> / {numPages || "…"}</span>
-            </span>
-            <ToolbarButton
-              label="Nächste Seite"
-              disabled={!!numPages && page >= numPages}
-              onClick={() => onPageChange(page + 1)}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </ToolbarButton>
+            {!coverOnly && (
+              <>
+                <ToolbarButton
+                  label="Vorherige Seite"
+                  disabled={page <= 1}
+                  onClick={() => onPageChange(page - 1)}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </ToolbarButton>
+                <span className="shrink-0 whitespace-nowrap px-1 font-mono text-xs tabular-nums">
+                  <span className="text-foreground">{page}</span>
+                  <span className="text-muted-foreground"> / {numPages || "…"}</span>
+                </span>
+                <ToolbarButton
+                  label="Nächste Seite"
+                  disabled={!!numPages && page >= numPages}
+                  onClick={() => onPageChange(page + 1)}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </ToolbarButton>
 
-            <Separator orientation="vertical" className="mx-1 h-6" />
+                <Separator orientation="vertical" className="mx-1 h-6" />
+              </>
+            )}
 
             <ToolbarButton label="Verkleinern" onClick={() => stepZoom(-1)}>
               <ZoomOut className="h-4 w-4" />
@@ -313,13 +329,20 @@ export function CatalogViewer({
               <TooltipTrigger asChild>
                 <Button asChild variant="ghost" size="icon" className="h-8 w-8">
                   <a
-                    href={fileUrl}
-                    download
-                    aria-label="PDF herunterladen"
+                    href={downloadHref}
+                    {...(externalDownload
+                      ? { target: "_blank", rel: "noopener noreferrer" }
+                      : { download: true })}
+                    aria-label={
+                      externalDownload
+                        ? "Whitepaper herunterladen"
+                        : "PDF herunterladen"
+                    }
                     onClick={() =>
                       track("catalog_pdf_downloaded", {
                         catalog_id: catalog.id,
                         catalog_name: catalog.name,
+                        external: externalDownload,
                       })
                     }
                   >
@@ -327,7 +350,9 @@ export function CatalogViewer({
                   </a>
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>PDF herunterladen</TooltipContent>
+              <TooltipContent>
+                {externalDownload ? "Whitepaper herunterladen" : "PDF herunterladen"}
+              </TooltipContent>
             </Tooltip>
             <ToolbarButton label="Vollbild">
               <Maximize2 className="h-4 w-4" />
@@ -344,7 +369,8 @@ export function CatalogViewer({
           error={<DocStatus label="PDF konnte nicht geladen werden." error />}
           className="flex flex-1 overflow-hidden"
         >
-          {/* Page rail */}
+          {/* Page rail (im Teaser-Modus ausgeblendet) */}
+          {!coverOnly && (
           <aside className="flex w-24 shrink-0 flex-col items-center gap-3 overflow-y-auto border-r bg-background/40 px-2.5 py-4">
             {Array.from({ length: numPages }, (_, i) => i + 1).map((n) => (
               <button
@@ -380,6 +406,7 @@ export function CatalogViewer({
               </button>
             ))}
           </aside>
+          )}
 
           {/* Canvas: Seite horizontal UND vertikal zentriert (m-auto), scrollt
               sauber, wenn sie größer als der Bereich ist. */}
@@ -387,8 +414,8 @@ export function CatalogViewer({
             <div className="flex min-h-full min-w-full p-6 lg:p-10">
               <div className="relative m-auto shadow-2xl ring-1 ring-black/10">
                 <Page
-                  key={`${catalog.id}-${page}-${zoom}`}
-                  pageNumber={page}
+                  key={`${catalog.id}-${displayPage}-${zoom}`}
+                  pageNumber={displayPage}
                   width={pageWidth}
                   onLoadSuccess={handleMainPageLoad}
                   renderAnnotationLayer={false}

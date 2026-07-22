@@ -19,5 +19,7 @@ export async function getOrderedClientCatalogs(): Promise<Catalog[]> {
       file: `/api/catalog/${catalog.id}/pdf`,
       category: catalog.category,
       exampleQuestions: catalog.exampleQuestions,
+      coverOnly: catalog.coverOnly,
+      downloadUrl: catalog.downloadUrl,
     }));
 }

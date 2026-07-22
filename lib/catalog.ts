@@ -21,6 +21,8 @@ export type CatalogMeta = {
   series?: string; // Serienbezeichnung aus den Asset-Metadaten
   quickId?: string; // QuickID aus den Asset-Metadaten (z. B. "IGU-A")
   sourceFile?: string; // Original-Dateiname des Uploads (für Re-Importe)
+  coverOnly?: boolean; // Nur das Deckblatt zeigen (Teaser/Lead-Gen)
+  downloadUrl?: string; // Externer Ziel-Link für "Herunterladen" (z. B. Formular)
 };
 
 export type CatalogRecord = CatalogMeta & {

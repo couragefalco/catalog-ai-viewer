@@ -101,6 +101,16 @@ export async function getCatalogPdfStream(
   return res.stream;
 }
 
+// Nur-Deckblatt-Vorschau (1 Seite). Existiert nur für Teaser-Kataloge; das
+// volle PDF wird dann nicht öffentlich ausgeliefert (Lead-Gen).
+export async function getCatalogCoverPdfStream(
+  id: string,
+): Promise<ReadableStream<Uint8Array> | null> {
+  const res = await get(`${PREFIX}${id}.cover.pdf`, ACCESS);
+  if (!res || res.statusCode !== 200 || !res.stream) return null;
+  return res.stream;
+}
+
 export async function getCatalogPdfBytes(
   id: string,
 ): Promise<Uint8Array | null> {
