@@ -186,6 +186,13 @@ ${candidates}
           full += delta;
           controller.enqueue(encoder.encode(delta));
         }
+        // Bei Katalogen mit Verhaltensvorgaben (Landingpage) den Download-Link
+        // deterministisch anhängen - das Modell setzt ihn nicht zuverlässig.
+        if (catalog.agentInstructions && !full.includes(whitepaperUrl)) {
+          const linkMd = `\n\n[Whitepaper herunterladen](${whitepaperUrl})`;
+          full += linkMd;
+          controller.enqueue(encoder.encode(linkMd));
+        }
         controller.enqueue(
           encoder.encode("\x1e" + JSON.stringify(buildCitations(full))),
         );
