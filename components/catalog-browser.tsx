@@ -120,6 +120,7 @@ export function CatalogBrowser({
             enableGlobalChat={catalogs.length > 1}
             initialScope={initialChatScope}
             shareSlug={shareSlug}
+            documentSuggestions={catalog.exampleQuestions}
           />
         </ResizablePanel>
       </ResizablePanelGroup>

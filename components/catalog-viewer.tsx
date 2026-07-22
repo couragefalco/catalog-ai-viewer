@@ -24,6 +24,7 @@ export type Catalog = {
   numPages: number;
   file: string;
   category?: string;
+  exampleQuestions?: string[];
 };
 import type { Citation } from "@/lib/types";
 import { track } from "@/lib/analytics";

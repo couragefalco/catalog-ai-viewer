@@ -79,6 +79,8 @@ type ChatPanelProps = {
   enableGlobalChat?: boolean;
   initialScope?: ChatScope;
   shareSlug?: string;
+  // Katalogspezifische Vorschlags-Buttons (Dokument-Modus); sonst generisch.
+  documentSuggestions?: string[];
 };
 
 type ChatScope = "document" | "global";
@@ -90,6 +92,7 @@ export function ChatPanel({
   enableGlobalChat = false,
   initialScope = "document",
   shareSlug,
+  documentSuggestions,
 }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -320,7 +323,9 @@ export function ChatPanel({
         <Suggestions className="w-full flex-wrap items-start gap-2 whitespace-normal">
           {(activeScope === "global"
             ? GLOBAL_SUGGESTIONS
-            : DOCUMENT_SUGGESTIONS
+            : documentSuggestions?.length
+              ? documentSuggestions
+              : DOCUMENT_SUGGESTIONS
           ).map((s) => (
             <Suggestion key={s} suggestion={s} onClick={send} />
           ))}
