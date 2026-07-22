@@ -21,7 +21,7 @@ export type CatalogMeta = {
   series?: string; // Serienbezeichnung aus den Asset-Metadaten
   quickId?: string; // QuickID aus den Asset-Metadaten (z. B. "IGU-A")
   sourceFile?: string; // Original-Dateiname des Uploads (für Re-Importe)
-  fitToWidth?: boolean; // Viewer startet an die Lesebreite angepasst (Doppelseiten)
+  defaultZoom?: number; // Start-Zoom im Viewer (%) für diesen Katalog, sonst 100
 };
 
 export type CatalogRecord = CatalogMeta & {

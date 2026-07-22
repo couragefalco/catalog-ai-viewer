@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import {
   ChevronLeft,
@@ -24,7 +24,7 @@ export type Catalog = {
   numPages: number;
   file: string;
   category?: string;
-  fitToWidth?: boolean;
+  defaultZoom?: number;
 };
 import type { Citation } from "@/lib/types";
 import { track } from "@/lib/analytics";
@@ -102,9 +102,8 @@ export function CatalogViewer({
   onPageChange,
   activeCitation,
 }: CatalogViewerProps) {
-  const [zoom, setZoom] = useState(100);
+  const [zoom, setZoom] = useState(catalog.defaultZoom ?? 100);
   const [numPages, setNumPages] = useState(catalog.numPages);
-  const canvasAreaRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState("");
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const highlight =
@@ -144,20 +143,12 @@ export function CatalogViewer({
     }
   };
 
-  // Start-Zoom je Katalog: normal 100 %. Für fitToWidth-Kataloge (Doppelseiten-
-  // Whitepaper) die Seite an die verfügbare Lesebreite anpassen - passt sich so
-  // an jeden Bildschirm an, statt einer festen Prozentzahl.
+  // Start-Zoom je Katalog: Standard 100 %, einzelne Kataloge (z. B. das
+  // Doppelseiten-Whitepaper) können einen eigenen Start-Zoom vorgeben.
   useEffect(() => {
-    let next = 100;
-    if (catalog.fitToWidth) {
-      const avail = (canvasAreaRef.current?.clientWidth ?? BASE_WIDTH) - 56;
-      if (avail > 0) {
-        next = Math.min(300, Math.max(75, Math.round((avail / BASE_WIDTH) * 100)));
-      }
-    }
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- einmalige Messung des Start-Zooms je Katalog
-    setZoom(next);
-  }, [catalog.id, catalog.fitToWidth]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Start-Zoom je Katalog zurücksetzen
+    setZoom(catalog.defaultZoom ?? 100);
+  }, [catalog.id, catalog.defaultZoom]);
 
   useEffect(() => {
     track("catalog_opened", {
@@ -377,7 +368,7 @@ export function CatalogViewer({
 
           {/* Canvas: Seite horizontal UND vertikal zentriert (m-auto), scrollt
               sauber, wenn sie größer als der Bereich ist. */}
-          <div ref={canvasAreaRef} className="relative flex-1 overflow-auto">
+          <div className="relative flex-1 overflow-auto">
             <div className="flex min-h-full min-w-full p-6 lg:p-10">
               <div className="relative m-auto shadow-2xl ring-1 ring-black/10">
                 <Page
