@@ -49,6 +49,22 @@ const GLOBAL_SUGGESTIONS = [
   "Welche Lösungen sind unterwassertauglich?",
 ];
 
+// Streamdown zeigt vor JEDEM Link in KI-Text ein Sicherheits-Warnmodal. Für
+// unsere eigenen Links (In-App-Downloads, igus-Domains) ist das unnötig und
+// verwirrend; onLinkCheck === true öffnet sie direkt. Echte Fremdlinks
+// bekommen weiterhin die Warnung.
+function isTrustedLink(url: string): boolean {
+  try {
+    if (url.startsWith("/") || url.startsWith("#")) return true;
+    const host = new URL(url, "https://solutions.igus.de").hostname;
+    return /(^|\.)(igus\.(de|net|eu|com)|poase\.com)$/.test(host);
+  } catch {
+    return false;
+  }
+}
+
+const LINK_SAFETY = { enabled: true, onLinkCheck: isTrustedLink };
+
 type ChatMessage = {
   id: string;
   role: "user" | "assistant";
@@ -370,7 +386,7 @@ function AssistantBody({
 
   return (
     <div className="space-y-3 text-sm">
-      <MessageResponse>{clean}</MessageResponse>
+      <MessageResponse linkSafety={LINK_SAFETY}>{clean}</MessageResponse>
       {sources.length > 0 && (
         <CitationSources
           sources={sources}
