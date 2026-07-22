@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import {
   ChevronLeft,
@@ -24,7 +24,6 @@ export type Catalog = {
   numPages: number;
   file: string;
   category?: string;
-  defaultZoom?: number;
 };
 import type { Citation } from "@/lib/types";
 import { track } from "@/lib/analytics";
@@ -102,8 +101,12 @@ export function CatalogViewer({
   onPageChange,
   activeCitation,
 }: CatalogViewerProps) {
-  const [zoom, setZoom] = useState(catalog.defaultZoom ?? 100);
+  const [zoom, setZoom] = useState(100);
   const [numPages, setNumPages] = useState(catalog.numPages);
+  // Merkt sich, für welche Seite der Auto-Zoom (nach Ausrichtung) schon gesetzt
+  // wurde - damit manuelles Zoomen (löst ein Neu-Rendern aus) ihn nicht
+  // überschreibt, nur ein echter Seitenwechsel.
+  const lastAutoPage = useRef(0);
   const [query, setQuery] = useState("");
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const highlight =
@@ -143,12 +146,23 @@ export function CatalogViewer({
     }
   };
 
-  // Start-Zoom je Katalog: Standard 100 %, einzelne Kataloge (z. B. das
-  // Doppelseiten-Whitepaper) können einen eigenen Start-Zoom vorgeben.
+  // Bei Katalogwechsel den Auto-Zoom neu auswerten lassen.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Start-Zoom je Katalog zurücksetzen
-    setZoom(catalog.defaultZoom ?? 100);
-  }, [catalog.id, catalog.defaultZoom]);
+    lastAutoPage.current = 0;
+  }, [catalog.id]);
+
+  // Auto-Zoom nach Seiten-Ausrichtung: breite Doppelseiten füllen mit 150 %,
+  // hochkant-Seiten (Cover) bleiben bei 100 %. Nur beim Seitenwechsel, nicht
+  // beim manuellen Zoomen (dann bleibt der eingestellte Wert erhalten).
+  const handleMainPageLoad = (pdfPage: {
+    originalWidth: number;
+    originalHeight: number;
+  }) => {
+    if (lastAutoPage.current === page) return;
+    lastAutoPage.current = page;
+    const wide = pdfPage.originalWidth / pdfPage.originalHeight > 1.2;
+    setZoom(wide ? 150 : 100);
+  };
 
   useEffect(() => {
     track("catalog_opened", {
@@ -375,6 +389,7 @@ export function CatalogViewer({
                   key={`${catalog.id}-${page}-${zoom}`}
                   pageNumber={page}
                   width={pageWidth}
+                  onLoadSuccess={handleMainPageLoad}
                   renderAnnotationLayer={false}
                   renderTextLayer={false}
                   loading={

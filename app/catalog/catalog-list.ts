@@ -18,6 +18,5 @@ export async function getOrderedClientCatalogs(): Promise<Catalog[]> {
       numPages: catalog.numPages,
       file: `/api/catalog/${catalog.id}/pdf`,
       category: catalog.category,
-      defaultZoom: catalog.defaultZoom,
     }));
 }
