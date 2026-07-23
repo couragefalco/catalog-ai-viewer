@@ -1,0 +1,10 @@
+[    2427ms] [ERROR] Failed to load resource: the server responded with a status of 500 () @ https://solutions.igus.de/icon.svg?icon.0phln_60_5cm4.svg:0
+[ 1155305ms] [ERROR] Failed to load resource: the server responded with a status of 500 () @ https://solutions.igus.de/icon.svg?icon.0phln_60_5cm4.svg:0
+[ 2384142ms] [ERROR] Failed to load resource: the server responded with a status of 500 () @ https://solutions.igus.de/icon.svg?icon.0phln_60_5cm4.svg:0
+[13430042ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://solutions.igus.de/catalog/ph/flags/?v=2&_=1784726181020&ver=1.399.1&compression=base64:0
+[17881122ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://solutions.igus.de/catalog/ph/flags/?v=2&_=1784730631766&ver=1.399.1&compression=base64:0
+[21080234ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://solutions.igus.de/catalog/ph/flags/?v=2&_=1784733830712&ver=1.399.1&compression=base64:0
+[24936753ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://solutions.igus.de/catalog/ph/flags/?v=2&_=1784737687470&ver=1.399.1&compression=base64:0
+[27694490ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://solutions.igus.de/catalog/ph/flags/?v=2&_=1784740446519&ver=1.399.1&compression=base64:0
+[30451838ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://solutions.igus.de/catalog/ph/flags/?v=2&_=1784743251412&ver=1.399.1&compression=base64:0
+[33210211ms] [ERROR] Failed to load resource: net::ERR_INTERNET_DISCONNECTED @ https://solutions.igus.de/catalog/ph/flags/?v=2&_=1784746009782&ver=1.399.1&compression=base64:0

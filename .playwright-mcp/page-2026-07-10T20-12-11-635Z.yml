@@ -1,0 +1,28 @@
+- generic [active] [ref=f1e1]:
+  - main [ref=f1e2]:
+    - generic [ref=f1e3]:
+      - separator [ref=f1e6]
+      - generic [ref=f1e10]:
+        - generic [ref=f1e11]:
+          - paragraph [ref=f1e12]: Dokumenten-Assistent
+          - generic [ref=f1e13]:
+            - button "Dokument" [ref=f1e14]
+            - button "Alle" [ref=f1e18]
+        - log [ref=f1e21]:
+          - generic [ref=f1e29]:
+            - heading "Frag dieses Dokument" [level=3] [ref=f1e30]
+            - paragraph [ref=f1e31]: Antworten sind im PDF belegt und zitieren die genaue Seite und Stelle.
+        - generic [ref=f1e36]:
+          - button "Worum geht es in diesem Dokument?" [ref=f1e37] [cursor=pointer]
+          - button "Welche technischen Daten sind angegeben?" [ref=f1e38] [cursor=pointer]
+          - button "Welche Vorteile werden genannt?" [ref=f1e39] [cursor=pointer]
+          - button "Für welche Anwendungen ist das gedacht?" [ref=f1e40] [cursor=pointer]
+          - button "Welche Maße oder Lasten werden genannt?" [ref=f1e41] [cursor=pointer]
+        - group [ref=f1e44]:
+          - textbox "Frag etwas zu diesem Dokument…" [ref=f1e46]
+          - group [ref=f1e47]:
+            - generic [ref=f1e48]: Belegt · Klick auf ein Zitat springt zur Stelle
+            - button "Submit" [disabled]
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f1e55] [cursor=pointer]
+  - alert [ref=f1e59]

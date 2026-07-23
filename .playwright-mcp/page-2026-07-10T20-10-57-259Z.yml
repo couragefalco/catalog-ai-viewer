@@ -1,0 +1,27 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - separator [ref=e6]
+      - generic [ref=e10]:
+        - generic [ref=e11]:
+          - paragraph [ref=e12]: Dokumenten-Assistent
+          - generic [ref=e13]:
+            - button "Dokument" [ref=e14]
+            - button "Alle" [ref=e18]
+        - log [ref=e21]:
+          - generic [ref=e29]:
+            - heading "Frag dieses Dokument" [level=3] [ref=e30]
+            - paragraph [ref=e31]: Antworten sind im PDF belegt und zitieren die genaue Seite und Stelle.
+        - generic [ref=e36]:
+          - button "Worum geht es in diesem Dokument?" [ref=e37] [cursor=pointer]
+          - button "Welche technischen Daten sind angegeben?" [ref=e38] [cursor=pointer]
+          - button "Welche Vorteile werden genannt?" [ref=e39] [cursor=pointer]
+          - button "Für welche Anwendungen ist das gedacht?" [ref=e40] [cursor=pointer]
+          - button "Welche Maße oder Lasten werden genannt?" [ref=e41] [cursor=pointer]
+        - group [ref=e44]:
+          - textbox "Frag etwas zu diesem Dokument…" [ref=e46]
+          - group [ref=e47]:
+            - generic [ref=e48]: Belegt · Klick auf ein Zitat springt zur Stelle
+            - button "Submit" [disabled]
+  - region "Notifications alt+T"
+  - alert [ref=e50]

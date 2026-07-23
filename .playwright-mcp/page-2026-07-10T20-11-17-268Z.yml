@@ -1,0 +1,244 @@
+- generic [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e51]:
+        - generic [ref=e54]:
+          - generic [ref=e55]:
+            - generic [ref=e56]:
+              - generic [ref=e57]: Kataloge
+              - generic [ref=e58]: "65"
+            - textbox "Katalog suchen…" [ref=e59]
+          - generic [ref=e60]:
+            - generic [ref=e62]:
+              - button "chainflex (CF) 1" [expanded] [ref=e63]:
+                - generic [ref=e66]: chainflex (CF)
+                - generic [ref=e67]: "1"
+              - list [ref=e472]:
+                - listitem [ref=e473]:
+                  - button "Leitungen – igus.de/chainflex" [ref=e474]
+                  - generic: "2"
+            - generic [ref=e69]:
+              - button "drylin_E (DRE) 3" [expanded] [ref=e70]:
+                - generic [ref=e73]: drylin_E (DRE)
+                - generic [ref=e74]: "3"
+              - list [ref=e481]:
+                - listitem [ref=e482]:
+                  - button "drylin® Antriebstechnik – Econ-Linearmodule" [ref=e483]
+                  - generic: "2"
+                - listitem [ref=e488]:
+                  - button "drylin® Antriebstechnik – Linearmodule und -achsen" [ref=e489]
+                  - generic: "4"
+                - listitem [ref=e494]:
+                  - button "drylin® Antriebstechnik – Multi-Drive-Linearmodule" [ref=e495]
+                  - generic: "2"
+            - button "igubal (IGU) 11" [active] [ref=e77]:
+              - generic [ref=e80]: igubal (IGU)
+              - generic [ref=e81]: "11"
+            - generic [ref=e83]:
+              - button "Weitere Kataloge 50" [expanded] [ref=e84]:
+                - generic [ref=e87]: Weitere Kataloge
+                - generic [ref=e88]: "50"
+              - list [ref=e501]:
+                - listitem [ref=e502]:
+                  - button "iglidur PRT-Drehkränze" [ref=e503]
+                  - generic: "8"
+                - listitem [ref=e508]:
+                  - button "iglidur Drehkranzlager" [ref=e509]
+                  - generic: "2"
+                - listitem [ref=e514]:
+                  - button "Bauserie PRT-01" [ref=e515]
+                  - generic: "1"
+                - listitem [ref=e520]:
+                  - button "Bauserie PRT-05" [ref=e521]
+                  - generic: "1"
+                - listitem [ref=e526]:
+                  - button "Distanzring aus Aluminium" [ref=e527]
+                  - generic: "1"
+                - listitem [ref=e532]:
+                  - button "Drehkkranzlager PRT-01" [ref=e533]
+                  - generic: "1"
+                - listitem [ref=e538]:
+                  - button "Drehkkranzlager PRT-04" [ref=e539]
+                  - generic: "1"
+                - listitem [ref=e544]:
+                  - button "Drehkranzlager Bauserie PRT-01" [ref=e545]
+                  - generic: "1"
+                - listitem [ref=e550]:
+                  - button "Drehkranzlager Black Edition PRT-04" [ref=e551]
+                  - generic: "1"
+                - listitem [ref=e556]:
+                  - button "Drehkranzlager mit Arretierung" [ref=e557]
+                  - generic: "1"
+                - listitem [ref=e562]:
+                  - button "Drehkranzlager mit montiertem Antriebszapfen" [ref=e563]
+                  - generic: "1"
+                - listitem [ref=e568]:
+                  - button "Drehkranzlager mit Nutensteinprofil" [ref=e569]
+                  - generic: "1"
+                - listitem [ref=e574]:
+                  - button "Drehkranzlager mit Rastfunktion" [ref=e575]
+                  - generic: "1"
+                - listitem [ref=e580]:
+                  - button "Drehkranzlager mit Rastfunktion" [ref=e581]
+                  - generic: "1"
+                - listitem [ref=e586]:
+                  - button "Drehkranzlager mit schaltendem i.Sense Sensor" [ref=e587]
+                  - generic: "1"
+                - listitem [ref=e592]:
+                  - button "Drehkranzlager mit verzahntem Innenring" [ref=e593]
+                  - generic: "1"
+                - listitem [ref=e598]:
+                  - button "Drehkranzlager mit Verzahnung" [ref=e599]
+                  - generic: "1"
+                - listitem [ref=e604]:
+                  - button "Drehkranzlager mit Winkelmesser" [ref=e605]
+                  - generic: "1"
+                - listitem [ref=e610]:
+                  - button "Drehkranzlager PRT-01 mit Winkelbegrenzer" [ref=e611]
+                  - generic: "1"
+                - listitem [ref=e616]:
+                  - button "Drehkranzlager PRT-05" [ref=e617]
+                  - generic: "1"
+                - listitem [ref=e622]:
+                  - button "Drehkranzlager PRT-06" [ref=e623]
+                  - generic: "1"
+                - listitem [ref=e628]:
+                  - button "Filzabdeckung für PRT-Drehkranzlager" [ref=e629]
+                  - generic: "1"
+                - listitem [ref=e634]:
+                  - button "Handklemmung PRT" [ref=e635]
+                  - generic: "1"
+                - listitem [ref=e640]:
+                  - button "Handklemmung PRT-04" [ref=e641]
+                  - generic: "1"
+                - listitem [ref=e646]:
+                  - button "iglidur PRT Bauserie PRT-04 Technische Daten" [ref=e647]
+                  - generic: "1"
+                - listitem [ref=e652]:
+                  - button "iglidur PRT Drehkranz-Serien" [ref=e653]
+                  - generic: "4"
+                - listitem [ref=e658]:
+                  - button "iglidur PRT-01" [ref=e659]
+                  - generic: "1"
+                - listitem [ref=e664]:
+                  - button "iglidur PRT-06 Bauserie" [ref=e665]
+                  - generic: "2"
+                - listitem [ref=e670]:
+                  - button "iglidur PRT-Drehkranz Low-Cost-Design" [ref=e671]
+                  - generic: "1"
+                - listitem [ref=e676]:
+                  - button "PRT Gleitelemente für Drehkränze" [ref=e677]
+                  - generic: "1"
+                - listitem [ref=e682]:
+                  - button "PRT-01 Distanzringe (Standard)" [ref=e683]
+                  - generic: "1"
+                - listitem [ref=e688]:
+                  - button "PRT-01 Drehkkranzlager mit Dichtung" [ref=e689]
+                  - generic: "1"
+                - listitem [ref=e694]:
+                  - button "PRT-01 Drehkkranzlager mit einstellbarem Drehmoment" [ref=e695]
+                  - generic: "1"
+                - listitem [ref=e700]:
+                  - button "PRT-01 Drehkranzlager" [ref=e701]
+                  - generic: "1"
+                - listitem [ref=e706]:
+                  - button "PRT-02 Drehkkranzlager ECO" [ref=e707]
+                  - generic: "1"
+                - listitem [ref=e712]:
+                  - button "PRT-02 Drehkranzlager auf Holzbasis" [ref=e713]
+                  - generic: "1"
+                - listitem [ref=e718]:
+                  - button "PRT-02 Lightweight Slewing Ring Bearings" [ref=e719]
+                  - generic: "1"
+                - listitem [ref=e724]:
+                  - button "PRT-04 Aufsetzverzahnung" [ref=e725]
+                  - generic: "1"
+                - listitem [ref=e730]:
+                  - button "PRT-04 Compact Version" [ref=e731]
+                  - generic: "1"
+                - listitem [ref=e736]:
+                  - button "PRT-04 Drehkkranzlager" [ref=e737]
+                  - generic: "1"
+                - listitem [ref=e742]:
+                  - button "PRT-04 Drehkranzlager" [ref=e743]
+                  - generic: "1"
+                - listitem [ref=e748]:
+                  - button "PRT-04 Drehkranzlager mit Verzahnung" [ref=e749]
+                  - generic: "1"
+                - listitem [ref=e754]:
+                  - button "PRT-04 Drehkranzlager mit Winkelbegrenzer" [ref=e755]
+                  - generic: "1"
+                - listitem [ref=e760]:
+                  - button "PRT-04 Handklemmung" [ref=e761]
+                  - generic: "1"
+                - listitem [ref=e766]:
+                  - button "PRT-04 Reinraum-Drehkranzlager" [ref=e767]
+                  - generic: "1"
+                - listitem [ref=e772]:
+                  - button "PRT-04 Verstellhebel 90 Grad" [ref=e773]
+                  - generic: "1"
+                - listitem [ref=e778]:
+                  - button "PRT-05 Drehkranzlager Compact Version" [ref=e779]
+                  - generic: "1"
+                - listitem [ref=e784]:
+                  - button "PRT-Drehkranzlager Austauschkits" [ref=e785]
+                  - generic: "1"
+                - listitem [ref=e790]:
+                  - button "Universalgleitelemente" [ref=e791]
+                  - generic: "1"
+                - listitem [ref=e796]:
+                  - button "Verstellhebel 45 Grad" [ref=e797]
+                  - generic: "1"
+        - main [ref=e392]:
+          - generic [ref=e393]:
+            - button "Toggle Sidebar" [ref=e394]
+            - generic [ref=e396]:
+              - img "igus" [ref=e397]
+              - paragraph [ref=e398]: iglidur PRT-Drehkränze
+            - generic [ref=e399]:
+              - button "Vorherige Seite" [disabled]
+              - generic [ref=e400]:
+                - text: "1"
+                - generic [ref=e401]: / 8
+              - button "Nächste Seite" [ref=e402]
+              - button "Verkleinern" [ref=e404]
+              - button "100%" [ref=e406]
+              - button "Vergrößern" [ref=e407]
+              - button "Drehen" [ref=e409]
+              - link "PDF herunterladen" [ref=e411] [cursor=pointer]:
+                - /url: /catalog/api/catalog/de-kompaktkatalog-igl-lagertechnik-a4-mat0075651-prt-a-print/pdf
+              - button "Vollbild" [ref=e412]
+          - complementary [ref=e415]:
+            - button "1" [ref=e416]
+            - button "2" [ref=e421]
+            - button "3" [ref=e426]
+            - button "4" [ref=e431]
+            - button "5" [ref=e436]
+            - button "6" [ref=e441]
+            - button "7" [ref=e446]
+            - button "8" [ref=e451]
+      - separator [ref=e6]
+      - generic [ref=e10]:
+        - generic [ref=e11]:
+          - paragraph [ref=e12]: Dokumenten-Assistent
+          - generic [ref=e13]:
+            - button "Dokument" [ref=e14]
+            - button "Alle" [ref=e18]
+        - log [ref=e21]:
+          - generic [ref=e29]:
+            - heading "Frag dieses Dokument" [level=3] [ref=e30]
+            - paragraph [ref=e31]: Antworten sind im PDF belegt und zitieren die genaue Seite und Stelle.
+        - generic [ref=e36]:
+          - button "Worum geht es in diesem Dokument?" [ref=e37] [cursor=pointer]
+          - button "Welche technischen Daten sind angegeben?" [ref=e38] [cursor=pointer]
+          - button "Welche Vorteile werden genannt?" [ref=e39] [cursor=pointer]
+          - button "Für welche Anwendungen ist das gedacht?" [ref=e40] [cursor=pointer]
+          - button "Welche Maße oder Lasten werden genannt?" [ref=e41] [cursor=pointer]
+        - group [ref=e44]:
+          - textbox "Frag etwas zu diesem Dokument…" [ref=e46]
+          - group [ref=e47]:
+            - generic [ref=e48]: Belegt · Klick auf ein Zitat springt zur Stelle
+            - button "Submit" [disabled]
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e466] [cursor=pointer]
+  - alert [ref=e50]
